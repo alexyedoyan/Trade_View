@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "704440804759",
+    "project_id": "trade-view5",
+    "storage_bucket": "trade-view5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:704440804759:android:f0795974924ba9b8e950d2",
+        "android_client_info": {
+          "package_name": "com.example.tradeview"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXBUV2kbr-5LLXmbNSj4-txj1oBo6tjkg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
