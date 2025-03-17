@@ -14,7 +14,28 @@
         android:textSize="24sp"
         android:textStyle="bold"
         android:layout_marginBottom="24dp" />
-
+    <EditText
+        android:id="@+id/cryptoInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Введите название криптовалюты (например, BTCUSDT)"
+        android:inputType="textCapCharacters"
+        android:layout_marginBottom="16dp"/>
+    <Button
+        android:id="@+id/searchButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Найти цену"
+        android:backgroundTint="@color/black"
+        android:textColor="@color/white"
+        android:layout_marginBottom="16dp"/>
+    <TextView
+        android:id="@+id/priceTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Цена: -"
+        android:textSize="16sp"
+        android:layout_marginBottom="16dp"/>
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -22,20 +43,20 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="8dp" />
-
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/cryptoRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp" />
-
     <Button
         android:id="@+id/logoutButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Logout"
         android:backgroundTint="@color/black"
-        android:textColor="@color/white" />
+        android:textColor="@color/white"
+        android:layout_marginBottom="16dp" />
+
     <TextView
         android:id="@+id/rsiValue"
         android:layout_width="wrap_content"
@@ -43,12 +64,14 @@
         android:text="RSI: "
         android:textSize="16sp"
         android:layout_marginTop="16dp" />
+
     <Button
         android:id="@+id/uploadPhotoButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Загрузить фото графика"
         android:layout_marginTop="16dp" />
+
     <ImageView
         android:id="@+id/chartImageView"
         android:layout_width="200dp"
@@ -56,5 +79,4 @@
         android:layout_marginTop="16dp"
         android:scaleType="centerCrop"
         android:src="@drawable/placeholder" />
-
 </LinearLayout>
