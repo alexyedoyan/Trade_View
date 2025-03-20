@@ -1,0 +1,39 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/white">
+
+    <!-- Поле для ввода названия криптовалюты -->
+    <EditText
+        android:id="@+id/cryptoInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Введите название криптовалюты (например, BTCUSDT)"
+        android:inputType="textCapCharacters"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Spinner для выбора таймфрейма -->
+    <Spinner
+        android:id="@+id/timeframeSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Кнопка для получения графика -->
+    <Button
+        android:id="@+id/getChartButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Получить график"
+        android:backgroundTint="@color/black"
+        android:textColor="@color/white"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Кастомный View для отрисовки графика -->
+    <com.example.tradeview.CandleStickChartView
+        android:id="@+id/candleStickChartView"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"/>
+</LinearLayout>
