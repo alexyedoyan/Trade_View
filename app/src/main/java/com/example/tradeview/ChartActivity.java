@@ -7,16 +7,17 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.example.tradeview.R;
+
 import com.example.tradeview.api.BinanceApiService;
-import com.example.tradeview.RetrofitClient;
+
+import java.util.ArrayList;
+import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ChartActivity extends AppCompatActivity {
 
@@ -24,19 +25,26 @@ public class ChartActivity extends AppCompatActivity {
     private EditText cryptoInput;
     private Spinner timeframeSpinner;
     private Button getChartButton;
-    private String selectedTimeframe = "1m"; // По умолчанию 1 минута
+    private Button predictButton;
+    private TextView predictionResult;
+    private String selectedTimeframe = "1m";
+    private List<CandleStick> currentCandles = new ArrayList<>();
+    private List<Double> currentClosePrices = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chart);
 
+        // Инициализация элементов
         candleStickChartView = findViewById(R.id.candleStickChartView);
         cryptoInput = findViewById(R.id.cryptoInput);
         timeframeSpinner = findViewById(R.id.timeframeSpinner);
         getChartButton = findViewById(R.id.getChartButton);
+        predictButton = findViewById(R.id.predictButton);
+        predictionResult = findViewById(R.id.predictionResult);
 
-        // Настройка Spinner
+        // Настройка выбора временного интервала
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
                 this,
                 R.array.timeframes,
@@ -53,50 +61,85 @@ public class ChartActivity extends AppCompatActivity {
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                selectedTimeframe = "1m"; // По умолчанию 1 минута
+                selectedTimeframe = "1m";
             }
         });
 
-        // Обработка нажатия на кнопку получения графика
-        getChartButton.setOnClickListener(v -> {
-            String cryptoName = cryptoInput.getText().toString().trim().toUpperCase();
-            if (!cryptoName.isEmpty()) {
-                getCryptoChart(cryptoName, selectedTimeframe);
-            } else {
-                Toast.makeText(this, "Введите название криптовалюты", Toast.LENGTH_SHORT).show();
+        // Кнопка загрузки графика
+        getChartButton.setOnClickListener(v -> loadChartData());
+
+        // Кнопка предсказания
+        predictButton.setOnClickListener(v -> {
+            if (currentClosePrices.isEmpty()) {
+                Toast.makeText(this, "Сначала загрузите данные", Toast.LENGTH_SHORT).show();
+                return;
             }
+            predictFuturePrices();
         });
     }
 
-    // Получение данных графика
-    private void getCryptoChart(String cryptoName, String interval) {
-        BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
+    private void loadChartData() {
+        String cryptoName = cryptoInput.getText().toString().trim().toUpperCase();
+        if (cryptoName.isEmpty()) {
+            Toast.makeText(this, "Введите название пары", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        // Запрос для получения исторических данных (свечей)
-        Call<List<List<String>>> call = apiService.getKlineData(cryptoName, interval, 100);
+        BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
+        Call<List<List<String>>> call = apiService.getKlineData(cryptoName, selectedTimeframe, 100);
+
         call.enqueue(new Callback<List<List<String>>>() {
             @Override
             public void onResponse(Call<List<List<String>>> call, Response<List<List<String>>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    List<CandleStick> candles = new ArrayList<>();
-                    for (List<String> kline : response.body()) {
-                        candles.add(new CandleStick(
-                                Float.parseFloat(kline.get(1)), // Цена открытия
-                                Float.parseFloat(kline.get(2)), // Максимальная цена
-                                Float.parseFloat(kline.get(3)), // Минимальная цена
-                                Float.parseFloat(kline.get(4))  // Цена закрытия
-                        ));
-                    }
-                    candleStickChartView.setData(candles); // Устанавливаем данные для графика
+                    processChartData(response.body());
                 } else {
-                    Toast.makeText(ChartActivity.this, "Ошибка при загрузке данных", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ChartActivity.this, "Ошибка загрузки", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<List<String>>> call, Throwable t) {
-                Toast.makeText(ChartActivity.this, "Ошибка сети: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(ChartActivity.this, "Ошибка сети", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void processChartData(List<List<String>> klines) {
+        currentCandles.clear();
+        currentClosePrices.clear();
+
+        for (List<String> kline : klines) {
+            float open = Float.parseFloat(kline.get(1));
+            float high = Float.parseFloat(kline.get(2));
+            float low = Float.parseFloat(kline.get(3));
+            float close = Float.parseFloat(kline.get(4));
+
+            currentCandles.add(new CandleStick(open, high, low, close));
+            currentClosePrices.add((double) close);
+        }
+
+        candleStickChartView.setData(currentCandles);
+        predictButton.setEnabled(true);
+    }
+
+    private void predictFuturePrices() {
+        // Простое предсказание на основе SMA
+        double sma10 = TechnicalAnalysis.calculateSMA(currentClosePrices, 10);
+        double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
+
+        String prediction;
+        if (lastPrice > sma10) {
+            prediction = "📈 Вероятен рост цены (цена выше SMA10)";
+        } else {
+            prediction = "📉 Вероятно падение (цена ниже SMA10)";
+        }
+
+        // Добавляем другие индикаторы
+        double rsi = TechnicalAnalysis.calculateRSI(currentClosePrices, 14);
+        prediction += "\nRSI: " + String.format("%.2f", rsi) + " - " +
+                (rsi > 70 ? "Перекупленность" : rsi < 30 ? "Перепроданность" : "Нейтрально");
+
+        predictionResult.setText(prediction);
     }
 }

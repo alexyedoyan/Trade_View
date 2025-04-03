@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="timeframes">
-        <item>1s</item>
         <item>1m</item>
         <item>3m</item>
         <item>5m</item>

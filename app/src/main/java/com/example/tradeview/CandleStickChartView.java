@@ -6,7 +6,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.view.View;
-import com.example.tradeview.CandleStick;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,6 +68,35 @@ public class CandleStickChartView extends View {
         float xStep = (float) width / candles.size(); // Шаг по оси X
         float yScale = height / (maxValue - minValue); // Масштаб по оси Y
 
+        // Отрисовка сетки
+        paint.setColor(Color.LTGRAY);
+        paint.setStrokeWidth(1);
+
+        // Горизонтальные линии (уровни цен)
+        for (int i = 0; i <= 10; i++) {
+            float y = height - (height / 10) * i;
+            canvas.drawLine(0, y, width, y, paint);
+
+            // Подписи цен
+            float price = minValue + (maxValue - minValue) * (i / 10f);
+            paint.setColor(Color.BLACK);
+            paint.setTextSize(24);
+            canvas.drawText(String.format("%.2f", price), 10, y - 10, paint);
+        }
+
+        // Вертикальные линии (временные интервалы)
+        for (int i = 0; i < candles.size(); i++) {
+            float x = i * xStep;
+            canvas.drawLine(x, 0, x, height, paint);
+
+            // Подписи времени (если данные доступны)
+            if (i % 10 == 0) {
+                paint.setColor(Color.BLACK);
+                paint.setTextSize(24);
+                canvas.drawText(String.valueOf(i), x, height - 10, paint);
+            }
+        }
+
         // Отрисовка свечей
         for (int i = 0; i < candles.size(); i++) {
             CandleStick candle = candles.get(i);
@@ -97,6 +125,24 @@ public class CandleStickChartView extends View {
             // Отрисовка тени свечи
             paint.setColor(Color.BLACK);
             canvas.drawLine(x, highY, x, lowY, paint);
+        }
+        paint.setColor(Color.BLUE);
+        paint.setStrokeWidth(2f);
+        List<Double> smaValues = new ArrayList<>();
+        for (int i = 10; i < candles.size(); i++) {
+            double sum = 0;
+            for (int j = i - 10; j < i; j++) {
+                sum += candles.get(j).getClose();
+            }
+            smaValues.add(sum / 10);
+        }
+
+        for (int i = 1; i < smaValues.size(); i++) {
+            float x1 = (i - 1) * xStep + xStep / 2;
+            float x2 = i * xStep + xStep / 2;
+            float y1 = height - (float)((smaValues.get(i - 1) - minValue) * yScale);
+            float y2 = height - (float)((smaValues.get(i) - minValue) * yScale);
+            canvas.drawLine(x1, y1, x2, y2, paint);
         }
     }
 }

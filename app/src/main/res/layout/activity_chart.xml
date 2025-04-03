@@ -1,39 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@color/white">
+    android:padding="16dp">
 
-    <!-- Поле для ввода названия криптовалюты -->
-    <EditText
-        android:id="@+id/cryptoInput"
+    <!-- Параметры графика -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите название криптовалюты (например, BTCUSDT)"
-        android:inputType="textCapCharacters"
-        android:layout_marginBottom="16dp"/>
+        android:orientation="horizontal">
 
-    <!-- Spinner для выбора таймфрейма -->
-    <Spinner
-        android:id="@+id/timeframeSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"/>
+        <EditText
+            android:id="@+id/cryptoInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:hint="BTCUSDT"
+            android:inputType="textCapCharacters"/>
 
-    <!-- Кнопка для получения графика -->
+        <Spinner
+            android:id="@+id/timeframeSpinner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
     <Button
         android:id="@+id/getChartButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Получить график"
-        android:backgroundTint="@color/black"
-        android:textColor="@color/white"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginTop="8dp"
+        android:text="Загрузить график"/>
 
-    <!-- Кастомный View для отрисовки графика -->
+    <!-- График -->
     <com.example.tradeview.CandleStickChartView
         android:id="@+id/candleStickChartView"
         android:layout_width="match_parent"
-        android:layout_height="300dp"/>
+        android:layout_height="300dp"
+        android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/predictButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Спрогнозировать"
+        android:enabled="false"/>
+
+    <TextView
+        android:id="@+id/predictionResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.2"/>
 </LinearLayout>
