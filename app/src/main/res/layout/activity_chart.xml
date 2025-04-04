@@ -3,13 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#121212">
 
     <!-- Параметры графика -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <EditText
             android:id="@+id/cryptoInput"
@@ -17,14 +19,18 @@
             android:layout_height="wrap_content"
             android:layout_weight="2"
             android:hint="BTCUSDT"
-            android:inputType="textCapCharacters"/>
+            android:textColor="#FFFFFF"
+            android:textColorHint="#AAAAAA"
+            android:inputType="textCapCharacters"
+            android:backgroundTint="#4CAF50"/>
 
         <Spinner
             android:id="@+id/timeframeSpinner"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"/>
+            android:layout_marginStart="8dp"
+            android:backgroundTint="#4CAF50"/>
     </LinearLayout>
 
     <Button
@@ -32,7 +38,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Загрузить график"/>
+        android:text="Загрузить график"
+        android:backgroundTint="#4CAF50"
+        android:textColor="#FFFFFF"/>
 
     <!-- График -->
     <com.example.tradeview.CandleStickChartView
@@ -47,7 +55,9 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="Спрогнозировать"
-        android:enabled="false"/>
+        android:enabled="false"
+        android:backgroundTint="#FF9800"
+        android:textColor="#FFFFFF"/>
 
     <TextView
         android:id="@+id/predictionResult"
@@ -55,5 +65,16 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:textSize="16sp"
-        android:lineSpacingMultiplier="1.2"/>
+        android:lineSpacingMultiplier="1.2"
+        android:textColor="#FFFFFF"
+        android:padding="8dp"
+        android:background="#1E1E1E"/>
+    <Button
+        android:id="@+id/btnUpdateLevels"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Обновить уровни"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="#3F51B5"
+        android:textColor="#FFFFFF"/>
 </LinearLayout>

@@ -19,7 +19,7 @@ public class IndicatorUtils {
     // Анализ RSI
     public static String analyzeRSI(double rsi) {
         if (rsi > 70) {
-            return "Перекупленность";
+            return "Перекупленность.";
         } else if (rsi < 30) {
             return "Перепроданность";
         } else {
