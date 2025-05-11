@@ -5,9 +5,11 @@ import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import com.example.tradeview.api.BinanceApiService;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 import java.util.*;
-import retrofit2.*;
+import com.example.tradeview.TechnicalAnalysis.MACDData;
 
 public class ChartActivity extends AppCompatActivity {
     private CandleStickChartView candleStickChartView;
@@ -15,14 +17,14 @@ public class ChartActivity extends AppCompatActivity {
     private Spinner timeframeSpinner;
     private Button getChartButton, predictButton, btnUpdateLevels;
     private TextView predictionResult;
+    private ProgressBar progressBar;
     private String selectedTimeframe = "1d";
     private List<CandleStick> currentCandles = new ArrayList<>();
     private List<Double> currentClosePrices = new ArrayList<>();
 
-    // Параметры для уровней поддержки/сопротивления
     private static final int MIN_TOUCH_COUNT = 3;
-    private static final double MERGE_THRESHOLD_PERCENT = 0.005; // 0.5%
-    private static final double LEVEL_DISTANCE_PERCENT = 0.01;   // 1%
+    private static final double MERGE_THRESHOLD_PERCENT = 0.005;
+    private static final double LEVEL_DISTANCE_PERCENT = 0.01;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,6 +34,13 @@ public class ChartActivity extends AppCompatActivity {
         initViews();
         setupTimeframeSpinner();
         setupButtons();
+
+        // Загрузка данных из интента (если есть)
+        String cryptoName = getIntent().getStringExtra("CRYPTO_NAME");
+        if (cryptoName != null && !cryptoName.isEmpty()) {
+            cryptoInput.setText(cryptoName);
+            loadChartData();
+        }
     }
 
     private void initViews() {
@@ -42,9 +51,7 @@ public class ChartActivity extends AppCompatActivity {
         predictButton = findViewById(R.id.predictButton);
         btnUpdateLevels = findViewById(R.id.btnUpdateLevels);
         predictionResult = findViewById(R.id.predictionResult);
-
-        // Настройка темного режима графика
-        candleStickChartView.setDarkMode(true);
+        progressBar = findViewById(R.id.progressBar);
     }
 
     private void setupTimeframeSpinner() {
@@ -93,21 +100,24 @@ public class ChartActivity extends AppCompatActivity {
             return;
         }
 
+        progressBar.setVisibility(View.VISIBLE);
         BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
         Call<List<List<String>>> call = apiService.getKlineData(cryptoName, selectedTimeframe, 100);
 
         call.enqueue(new Callback<List<List<String>>>() {
             @Override
             public void onResponse(Call<List<List<String>>> call, Response<List<List<String>>> response) {
+                progressBar.setVisibility(View.GONE);
                 if (response.isSuccessful() && response.body() != null) {
                     processChartData(response.body());
                 } else {
-                    Toast.makeText(ChartActivity.this, "Ошибка загрузки", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ChartActivity.this, "Ошибка загрузки данных", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<List<List<String>>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
                 Toast.makeText(ChartActivity.this, "Ошибка сети: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
@@ -116,6 +126,7 @@ public class ChartActivity extends AppCompatActivity {
     private void processChartData(List<List<String>> klines) {
         currentCandles.clear();
         currentClosePrices.clear();
+        List<Float> volumes = new ArrayList<>();
 
         for (List<String> kline : klines) {
             try {
@@ -123,9 +134,11 @@ public class ChartActivity extends AppCompatActivity {
                 float high = Float.parseFloat(kline.get(2));
                 float low = Float.parseFloat(kline.get(3));
                 float close = Float.parseFloat(kline.get(4));
+                float volume = Float.parseFloat(kline.get(5));
 
                 currentCandles.add(new CandleStick(open, high, low, close));
                 currentClosePrices.add((double) close);
+                volumes.add(volume);
             } catch (Exception e) {
                 Log.e("ChartActivity", "Error parsing kline data", e);
             }
@@ -133,10 +146,15 @@ public class ChartActivity extends AppCompatActivity {
 
         if (!currentCandles.isEmpty()) {
             candleStickChartView.setData(currentCandles);
+            candleStickChartView.setVolumes(volumes);
 
-            // Рассчитываем SMA для отображения на графике
-            List<Float> smaValues = TechnicalAnalysis.calculateSmaList(currentClosePrices, 10);
-            candleStickChartView.setSmaValues(smaValues);
+            // Расчет индикаторов
+            List<Float> sma10 = TechnicalAnalysis.calculateSmaList(currentClosePrices, 10);
+            List<Float> sma50 = TechnicalAnalysis.calculateSmaList(currentClosePrices, 50);
+            TechnicalAnalysis.BollingerBands bands = TechnicalAnalysis.calculateBollingerBands(currentClosePrices, 20, 2);
+
+            candleStickChartView.setSmaValues(sma10);
+            candleStickChartView.setBollingerBands(bands);
 
             findAndDrawKeyLevels();
             predictButton.setEnabled(true);
@@ -144,90 +162,62 @@ public class ChartActivity extends AppCompatActivity {
     }
 
     private void findAndDrawKeyLevels() {
-        // Рассчитываем масштаб для определения расстояния между уровнями
-        double priceRange = getPriceRange(currentClosePrices);
+        if (currentClosePrices.isEmpty()) return;
+
+        double priceRange = TechnicalAnalysis.getPriceRange(currentClosePrices);
         double mergeThreshold = priceRange * MERGE_THRESHOLD_PERCENT;
         double minDistance = priceRange * LEVEL_DISTANCE_PERCENT;
 
-        // Находим значимые уровни
-        List<List<Double>> levels = TechnicalAnalysis.findSupportResistanceLevels(
-                currentClosePrices,
-                MIN_TOUCH_COUNT,
-                mergeThreshold,
-                minDistance
-        );
-
-        List<Double> supports = levels.get(0);
-        List<Double> resistances = levels.get(1);
-
-        // Устанавливаем уровни на график
-        candleStickChartView.setSupportLevels(supports);
-        candleStickChartView.setResistanceLevels(resistances);
-
-        // Логируем для отладки
-        Log.d("Levels", "Supports: " + supports);
-        Log.d("Levels", "Resistances: " + resistances);
     }
 
-    private double getPriceRange(List<Double> prices) {
-        if (prices.isEmpty()) return 0;
-        double min = Collections.min(prices);
-        double max = Collections.max(prices);
-        return max - min;
+    private void setMainLevels(List<Double> supports, List<Double> resistances) {
+        if (!supports.isEmpty()) {
+            double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
+            double mainSupport = Collections.max(supports);
+
+            for (Double level : supports) {
+                if (level < lastPrice && level > mainSupport) {
+                    mainSupport = level;
+                }
+            }
+            // Здесь можно визуализировать mainSupport на графике
+        }
+
+        if (!resistances.isEmpty()) {
+            double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
+            double mainResistance = Collections.min(resistances);
+
+            for (Double level : resistances) {
+                if (level > lastPrice && level < mainResistance) {
+                    mainResistance = level;
+                }
+            }
+            // Здесь можно визуализировать mainResistance на графике
+        }
     }
 
     private void predictFuturePrices() {
-        // Рассчитываем индикаторы
         double sma10 = TechnicalAnalysis.calculateSMA(currentClosePrices, 10);
         double sma50 = TechnicalAnalysis.calculateSMA(currentClosePrices, 50);
         double ema20 = TechnicalAnalysis.calculateEMA(currentClosePrices, 20);
         double rsi = TechnicalAnalysis.calculateRSI(currentClosePrices, 14);
         double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
 
-        // Получаем текущие уровни с графика
-        List<Double> supports = candleStickChartView.getSupportLevels();
-        List<Double> resistances = candleStickChartView.getResistanceLevels();
+        // Анализ MACD
+        MACDData macdData = TechnicalAnalysis.calculateMACD(currentClosePrices, 12, 26, 9);
+        double[] macd = macdData.getLastValues();
+        String macdAnalysis = TechnicalAnalysis.analyzeMACD(macd[0], macd[1]);
 
-        // Формируем прогноз
-        String prediction = buildPredictionString(lastPrice, sma10, sma50, ema20, rsi, supports, resistances);
-        predictionResult.setText(prediction);
-    }
+        StringBuilder prediction = new StringBuilder();
+        prediction.append(String.format(Locale.US, "Цена: %.4f\n", lastPrice));
+        prediction.append(String.format(Locale.US, "SMA 10/50: %.4f / %.4f\n", sma10, sma50));
+        prediction.append(String.format(Locale.US, "EMA 20: %.4f\n", ema20));
+        prediction.append(String.format(Locale.US, "RSI: %.1f (%s)\n", rsi, getRsiCondition(rsi)));
+        prediction.append(String.format("MACD: %.4f | Signal: %.4f\n", macd[0], macd[1]));
+        prediction.append("MACD анализ: ").append(macdAnalysis).append("\n\n");
+        prediction.append("Тренд: ").append(TechnicalAnalysis.predictTrend(currentClosePrices));
 
-    private String buildPredictionString(double lastPrice, double sma10, double sma50,
-                                         double ema20, double rsi,
-                                         List<Double> supports, List<Double> resistances) {
-        StringBuilder sb = new StringBuilder();
-
-        // Основные индикаторы
-        sb.append(String.format("📊 Цена: %.4f\n", lastPrice));
-        sb.append(String.format("📈 SMA 10/50: %.4f / %.4f\n", sma10, sma50));
-        sb.append(String.format("🔮 EMA 20: %.4f\n", ema20));
-        sb.append(String.format("📉 RSI: %.1f (%s)\n\n", rsi, getRsiCondition(rsi)));
-
-        // Уровни поддержки/сопротивления
-        if (!supports.isEmpty()) {
-            sb.append("🛡️ Поддержки:\n");
-            for (Double level : supports) {
-                sb.append(String.format("• %.4f (%.2f%%)\n",
-                        level, ((level - lastPrice)/lastPrice)*100));
-            }
-            sb.append("\n");
-        }
-
-        if (!resistances.isEmpty()) {
-            sb.append("⛰️ Сопротивления:\n");
-            for (Double level : resistances) {
-                sb.append(String.format("• %.4f (%.2f%%)\n",
-                        level, ((level - lastPrice)/lastPrice)*100));
-            }
-            sb.append("\n");
-        }
-
-        // Тренд
-        sb.append("🔍 Тренд: ")
-                .append(TechnicalAnalysis.predictTrend(currentClosePrices));
-
-        return sb.toString();
+        predictionResult.setText(prediction.toString());
     }
 
     private String getRsiCondition(double rsi) {

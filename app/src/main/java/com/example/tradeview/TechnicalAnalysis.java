@@ -1,44 +1,51 @@
 package com.example.tradeview;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class TechnicalAnalysis {
 
-    // Вложенный класс для группировки близких уровней
-    private static class LevelCluster {
-        private List<Double> touches = new ArrayList<>();
+    public static class BollingerBands {
+        public List<Double> upper;
+        public List<Double> middle;
+        public List<Double> lower;
+    }
+    public static class MACDData {
+        public List<Double> macdLine;
+        public List<Double> signalLine;
+        public List<Double> histogram;
 
-        public LevelCluster(double firstPrice) {
-            touches.add(firstPrice);
-        }
-
-        public void addTouch(double price) {
-            touches.add(price);
-        }
-
-        public int getTouchCount() {
-            return touches.size();
-        }
-
-        public double getAverage() {
-            double sum = 0;
-            for (Double price : touches) {
-                sum += price;
+        public double[] toDoubleArray() {
+            if (macdLine == null || signalLine == null ||
+                    macdLine.isEmpty() || signalLine.isEmpty()) {
+                return new double[]{0, 0};
             }
-            return sum / touches.size();
+            return new double[]{
+                    macdLine.get(macdLine.size()-1),
+                    signalLine.get(signalLine.size()-1)
+            };
         }
-
-        public boolean isInRange(double price, double threshold) {
-            return Math.abs(price - getAverage()) < threshold;
+        public double[] getLastValues() {
+            if (macdLine == null || macdLine.isEmpty() ||
+                    signalLine == null || signalLine.isEmpty()) {
+                return new double[]{0, 0};
+            }
+            return new double[]{
+                    macdLine.get(macdLine.size()-1),
+                    signalLine.get(signalLine.size()-1)
+            };
         }
     }
 
-    // Метод для расчета SMA
+    // 1. БАЗОВЫЕ МЕТОДЫ -----------------------------------------------------
+
+    public static double getPriceRange(List<Double> prices) {
+        if (prices == null || prices.isEmpty()) return 0;
+        return Collections.max(prices) - Collections.min(prices);
+    }
+
     public static double calculateSMA(List<Double> prices, int period) {
         if (prices == null || prices.size() < period) {
-            throw new IllegalArgumentException("Недостаточно данных для SMA");
+            throw new IllegalArgumentException("Not enough data for SMA");
         }
         double sum = 0;
         for (int i = prices.size() - period; i < prices.size(); i++) {
@@ -47,7 +54,6 @@ public class TechnicalAnalysis {
         return sum / period;
     }
 
-    // Метод для расчета списка значений SMA
     public static List<Float> calculateSmaList(List<Double> prices, int period) {
         List<Float> smaValues = new ArrayList<>();
         for (int i = period; i <= prices.size(); i++) {
@@ -56,29 +62,80 @@ public class TechnicalAnalysis {
         return smaValues;
     }
 
-    // Метод для расчета EMA
     public static double calculateEMA(List<Double> prices, int period) {
         if (prices == null || prices.size() < period) {
-            throw new IllegalArgumentException("Недостаточно данных для EMA");
+            throw new IllegalArgumentException("Not enough data for EMA");
         }
         double multiplier = 2.0 / (period + 1);
         double ema = calculateSMA(prices.subList(0, period), period);
+
         for (int i = period; i < prices.size(); i++) {
             ema = (prices.get(i) - ema) * multiplier + ema;
         }
         return ema;
     }
 
-    // Метод для расчета RSI
+    public static List<Double> calculateEmaList(List<Double> prices, int period) {
+        List<Double> emaValues = new ArrayList<>();
+        if (prices.size() < period) return emaValues;
+
+        double multiplier = 2.0 / (period + 1);
+        double ema = calculateSMA(prices.subList(0, period), period);
+        emaValues.add(ema);
+
+        for (int i = period; i < prices.size(); i++) {
+            ema = (prices.get(i) - ema) * multiplier + ema;
+            emaValues.add(ema);
+        }
+        return emaValues;
+    }
+
+    // 2. МЕТОДЫ ДЛЯ MACD ----------------------------------------------------
+
+    public static MACDData calculateMACD(List<Double> prices, int fastPeriod,
+                                         int slowPeriod, int signalPeriod) {
+        MACDData macdData = new MACDData();
+        macdData.macdLine = new ArrayList<>();
+        macdData.signalLine = new ArrayList<>();
+        macdData.histogram = new ArrayList<>();
+
+        List<Double> fastEMA = calculateEmaList(prices, fastPeriod);
+        List<Double> slowEMA = calculateEmaList(prices, slowPeriod);
+
+        for (int i = 0; i < Math.min(fastEMA.size(), slowEMA.size()); i++) {
+            macdData.macdLine.add(fastEMA.get(i) - slowEMA.get(i));
+        }
+
+        macdData.signalLine = calculateEmaList(macdData.macdLine, signalPeriod);
+
+        for (int i = 0; i < Math.min(macdData.macdLine.size(), macdData.signalLine.size()); i++) {
+            macdData.histogram.add(
+                    macdData.macdLine.get(i) - macdData.signalLine.get(i)
+            );
+        }
+
+        return macdData;
+    }
+
+    public static String analyzeMACD(double macdValue, double signalValue) {
+        if (macdValue > signalValue) {
+            return "Bullish (MACD above Signal)";
+        } else if (macdValue < signalValue) {
+            return "Bearish (MACD below Signal)";
+        }
+        return "Neutral (MACD crossing)";
+    }
+
+    // 3. МЕТОДЫ ДЛЯ RSI -----------------------------------------------------
+
     public static double calculateRSI(List<Double> prices, int period) {
         if (prices == null || prices.size() <= period) {
-            throw new IllegalArgumentException("Недостаточно данных для расчета RSI");
+            throw new IllegalArgumentException("Not enough data for RSI");
         }
 
         double avgGain = 0;
         double avgLoss = 0;
 
-        // Первоначальный расчет средних gain/loss
         for (int i = 1; i <= period; i++) {
             double change = prices.get(i) - prices.get(i-1);
             if (change >= 0) {
@@ -91,7 +148,6 @@ public class TechnicalAnalysis {
         avgGain /= period;
         avgLoss /= period;
 
-        // Последующие расчеты
         for (int i = period + 1; i < prices.size(); i++) {
             double change = prices.get(i) - prices.get(i-1);
             if (change >= 0) {
@@ -108,126 +164,68 @@ public class TechnicalAnalysis {
         return 100 - (100 / (1 + rs));
     }
 
-    // Улучшенный метод для поиска значимых уровней
-    public static List<Double> findSignificantLevels(List<Double> prices,
-                                                     boolean findSupport,
-                                                     int minTouchCount,
-                                                     double mergeThreshold) {
+    // 4. ПРОГНОЗИРОВАНИЕ ТРЕНДА ---------------------------------------------
 
-        if (prices == null || prices.size() < 20) {
-            return new ArrayList<>();
-        }
-
-        // 1. Находим все потенциальные экстремумы
-        List<Double> extremes = new ArrayList<>();
-        for (int i = 5; i < prices.size() - 5; i++) {
-            if (isLocalExtreme(prices, i, 5, findSupport)) {
-                extremes.add(prices.get(i));
-            }
-        }
-
-        // 2. Группируем близкие уровни
-        List<LevelCluster> clusters = new ArrayList<>();
-        for (Double price : extremes) {
-            boolean merged = false;
-            for (LevelCluster cluster : clusters) {
-                if (cluster.isInRange(price, mergeThreshold)) {
-                    cluster.addTouch(price);
-                    merged = true;
-                    break;
-                }
-            }
-            if (!merged) {
-                clusters.add(new LevelCluster(price));
-            }
-        }
-
-        // 3. Фильтруем по значимости
-        List<Double> significantLevels = new ArrayList<>();
-        for (LevelCluster cluster : clusters) {
-            if (cluster.getTouchCount() >= minTouchCount) {
-                significantLevels.add(cluster.getAverage());
-            }
-        }
-
-        return significantLevels;
-    }
-
-    // Проверка на локальный экстремум
-    private static boolean isLocalExtreme(List<Double> prices, int index,
-                                          int lookback, boolean findSupport) {
-        double current = prices.get(index);
-
-        for (int i = Math.max(0, index-lookback); i <= Math.min(prices.size()-1, index+lookback); i++) {
-            if (i == index) continue;
-
-            if (findSupport && prices.get(i) < current) {
-                return false; // Для поддержки - все соседние точки должны быть выше
-            }
-            if (!findSupport && prices.get(i) > current) {
-                return false; // Для сопротивления - все соседние точки должны быть ниже
-            }
-        }
-        return true;
-    }
-
-    // Метод для поиска обоих типов уровней
-    public static List<List<Double>> findSupportResistanceLevels(List<Double> prices,
-                                                                 int minTouchCount,
-                                                                 double mergeThreshold,
-                                                                 double priceScale) {
-        List<Double> supports = findSignificantLevels(prices, true, minTouchCount, mergeThreshold);
-        List<Double> resistances = findSignificantLevels(prices, false, minTouchCount, mergeThreshold);
-
-        // Фильтруем уровни, которые слишком близко друг к другу
-        List<Double> filteredSupports = filterProximateLevels(supports, priceScale);
-        List<Double> filteredResistances = filterProximateLevels(resistances, priceScale);
-
-        List<List<Double>> result = new ArrayList<>();
-        result.add(filteredSupports);
-        result.add(filteredResistances);
-        return result;
-    }
-
-    // Фильтрация слишком близких уровней
-    private static List<Double> filterProximateLevels(List<Double> levels, double minDistance) {
-        List<Double> filtered = new ArrayList<>();
-        for (Double level : levels) {
-            boolean keep = true;
-            for (Double existing : filtered) {
-                if (Math.abs(level - existing) < minDistance) {
-                    keep = false;
-                    break;
-                }
-            }
-            if (keep) {
-                filtered.add(level);
-            }
-        }
-        return filtered;
-    }
-
-    // Анализ тренда
     public static String predictTrend(List<Double> prices) {
-        if (prices.size() < 20) return "Недостаточно данных";
-        double sma10 = calculateSMA(prices, 10);
-        double sma20 = calculateSMA(prices, 20);
-        double lastPrice = prices.get(prices.size() - 1);
+        if (prices.size() < 50) return "Not enough data";
 
-        if (lastPrice > sma20 && sma10 > sma20) {
-            return "Сильный восходящий тренд";
-        } else if (lastPrice < sma20 && sma10 < sma20) {
-            return "Сильный нисходящий тренд";
+        double sma20 = calculateSMA(prices, 20);
+        double sma50 = calculateSMA(prices, 50);
+        double lastPrice = prices.get(prices.size()-1);
+
+        MACDData macd = calculateMACD(prices, 12, 26, 9);
+        double[] macdValues = macd.getLastValues();
+        String macdAnalysis = analyzeMACD(macdValues[0], macdValues[1]);
+
+        double rsi = calculateRSI(prices, 14);
+
+        StringBuilder trend = new StringBuilder();
+
+        if (lastPrice > sma50 && sma20 > sma50) {
+            trend.append("Strong Uptrend");
+        } else if (lastPrice < sma50 && sma20 < sma50) {
+            trend.append("Strong Downtrend");
+        } else if (lastPrice > sma20) {
+            trend.append("Mild Uptrend");
         } else {
-            return "Неопределённый тренд";
+            trend.append("Mild Downtrend");
         }
+
+        trend.append("\nMACD: ").append(macdAnalysis);
+
+        if (rsi > 70) trend.append("\nOverbought (RSI)");
+        if (rsi < 30) trend.append("\nOversold (RSI)");
+
+        return trend.toString();
     }
 
-    // Дополнительный метод для получения диапазона цен
-    public static double getPriceRange(List<Double> prices) {
-        if (prices == null || prices.isEmpty()) return 0;
-        double min = Collections.min(prices);
-        double max = Collections.max(prices);
-        return max - min;
+    // 5. ДОПОЛНИТЕЛЬНЫЕ ИНДИКАТОРЫ ------------------------------------------
+
+    public static BollingerBands calculateBollingerBands(List<Double> prices, int period, double multiplier) {
+        BollingerBands bands = new BollingerBands();
+        bands.middle = new ArrayList<>();
+        bands.upper = new ArrayList<>();
+        bands.lower = new ArrayList<>();
+
+        for (int i = period; i <= prices.size(); i++) {
+            List<Double> window = prices.subList(i - period, i);
+            double sma = calculateSMA(window, period);
+            double stdDev = calculateStandardDeviation(window);
+
+            bands.middle.add(sma);
+            bands.upper.add(sma + stdDev * multiplier);
+            bands.lower.add(sma - stdDev * multiplier);
+        }
+
+        return bands;
+    }
+
+    private static double calculateStandardDeviation(List<Double> values) {
+        double mean = calculateSMA(values, values.size());
+        double sum = 0;
+        for (double val : values) {
+            sum += Math.pow(val - mean, 2);
+        }
+        return Math.sqrt(sum / values.size());
     }
 }

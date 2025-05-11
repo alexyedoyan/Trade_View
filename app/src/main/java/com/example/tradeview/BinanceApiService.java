@@ -1,12 +1,9 @@
-package com.example.tradeview.api;
-
-import com.example.tradeview.CryptoModel;
-import com.example.tradeview.ExchangeInfo;
-import com.example.tradeview.KlineData;
+package com.example.tradeview;
 import retrofit2.Call;
 import retrofit2.http.GET;
 import retrofit2.http.Query;
 import java.util.List;
+import java.util.Map;
 
 public interface BinanceApiService {
     @GET("api/v3/ticker/price")

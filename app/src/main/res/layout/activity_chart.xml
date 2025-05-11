@@ -6,7 +6,6 @@
     android:padding="16dp"
     android:background="#121212">
 
-    <!-- Параметры графика -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -42,12 +41,18 @@
         android:backgroundTint="#4CAF50"
         android:textColor="#FFFFFF"/>
 
-    <!-- График -->
     <com.example.tradeview.CandleStickChartView
         android:id="@+id/candleStickChartView"
         android:layout_width="match_parent"
         android:layout_height="300dp"
         android:layout_marginTop="16dp"/>
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/predictButton"

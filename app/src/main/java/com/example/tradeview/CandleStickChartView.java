@@ -3,26 +3,45 @@ package com.example.tradeview;
 import android.content.Context;
 import android.graphics.*;
 import android.util.AttributeSet;
-import android.util.Log;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import java.util.*;
 
 public class CandleStickChartView extends View {
-    private Paint paint, smaPaint, levelPaint, textPaint, mainLevelPaint;
-    private List<CandleStick> candles;
-    private List<Float> smaValues;
-    private List<Double> supportLevels;
-    private List<Double> resistanceLevels;
-    private Double mainSupportLevel;
-    private Double mainResistanceLevel;
-    private float minValue, maxValue;
+    private Paint candlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint smaPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint gridPaint = new Paint();
+    private Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint volumePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint bollingerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint supportPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint resistancePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    // Данные
+    private List<CandleStick> candles = new ArrayList<>();
+    private List<Float> volumes = new ArrayList<>();
+    private List<Float> smaValues = new ArrayList<>();
+    private TechnicalAnalysis.BollingerBands bollingerBands;
+    private List<Double> supportLevels = new ArrayList<>();
+    private List<Double> resistanceLevels = new ArrayList<>();
+    private float minPrice, maxPrice;
+    private boolean isDarkMode = true;
     private int bullColor = Color.GREEN;
     private int bearColor = Color.RED;
-    private int shadowColor = Color.DKGRAY;
-    private float shadowWidth = 2f;
-    private int highlightColor = Color.YELLOW;
-    private int highlightedCandleIndex = -1;
 
+    // Параметры зума и скролла
+    private ScaleGestureDetector scaleDetector;
+    private float scaleFactor = 1.0f;
+    private float translateX = 0f;
+    private float lastTouchX;
+    private int visibleCandles = 50;
+
+    // Интерактивность
+    private int selectedIndex = -1;
+    private RectF tooltipRect = new RectF();
+    private Paint tooltipPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public CandleStickChartView(Context context) {
         super(context);
@@ -35,32 +54,73 @@ public class CandleStickChartView extends View {
     }
 
     private void init() {
-        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        smaPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        scaleDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
+
+        // Стили для свечей
+        candlePaint.setStyle(Paint.Style.FILL);
+
+        // Стили для теней
+        shadowPaint.setStrokeWidth(1.5f);
+
+        // Стили для SMA
         smaPaint.setColor(Color.BLUE);
-        smaPaint.setStrokeWidth(3f);
+        smaPaint.setStrokeWidth(2f);
 
-        levelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        levelPaint.setStyle(Paint.Style.STROKE);
-        levelPaint.setStrokeWidth(2f);
+        // Стили для Bollinger Bands
+        bollingerPaint.setColor(Color.CYAN);
+        bollingerPaint.setStyle(Paint.Style.STROKE);
+        bollingerPaint.setStrokeWidth(1.5f);
 
-        mainLevelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mainLevelPaint.setStyle(Paint.Style.STROKE);
-        mainLevelPaint.setStrokeWidth(4f);
+        // Стили для сетки
+        gridPaint.setStrokeWidth(0.5f);
+        gridPaint.setStyle(Paint.Style.STROKE);
 
-        textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        textPaint.setTextSize(36f);
-        textPaint.setColor(Color.WHITE);
+        // Стили для текста
+        textPaint.setTextSize(24f);
 
-        candles = new ArrayList<>();
-        supportLevels = new ArrayList<>();
-        resistanceLevels = new ArrayList<>();
-        setLayerType(LAYER_TYPE_HARDWARE, null);
+        // Стили для объемов
+        volumePaint.setStyle(Paint.Style.FILL);
+
+        // Стили для уровней
+        supportPaint.setColor(Color.GREEN);
+        supportPaint.setStyle(Paint.Style.STROKE);
+        supportPaint.setStrokeWidth(2f);
+
+        resistancePaint.setColor(Color.RED);
+        resistancePaint.setStyle(Paint.Style.STROKE);
+        resistancePaint.setStrokeWidth(2f);
+
+        // Стили для тултипа
+        tooltipPaint.setColor(Color.argb(200, 50, 50, 50));
+        tooltipPaint.setTextSize(28f);
+
+        updateThemeColors();
     }
 
+    // Метод для обновления цветов при изменении темы
+    private void updateThemeColors() {
+        if (isDarkMode) {
+            setBackgroundColor(Color.BLACK);
+            shadowPaint.setColor(Color.argb(180, 255, 255, 255));
+            gridPaint.setColor(Color.argb(50, 255, 255, 255));
+            textPaint.setColor(Color.WHITE);
+        } else {
+            setBackgroundColor(Color.WHITE);
+            shadowPaint.setColor(Color.argb(180, 0, 0, 0));
+            gridPaint.setColor(Color.argb(30, 0, 0, 0));
+            textPaint.setColor(Color.BLACK);
+        }
+    }
+
+    // Установка данных
     public void setData(List<CandleStick> candles) {
         this.candles = candles;
-        calculateMinMax();
+        calculatePriceRange();
+        invalidate();
+    }
+
+    public void setVolumes(List<Float> volumes) {
+        this.volumes = volumes;
         invalidate();
     }
 
@@ -69,175 +129,290 @@ public class CandleStickChartView extends View {
         invalidate();
     }
 
-    public void setSupportLevels(List<Double> levels) {
-        this.supportLevels = levels != null ? new ArrayList<>(levels) : new ArrayList<Double>();
+    public void setBollingerBands(TechnicalAnalysis.BollingerBands bands) {
+        this.bollingerBands = bands;
         invalidate();
     }
 
-    public void setResistanceLevels(List<Double> levels) {
-        this.resistanceLevels = levels != null ? new ArrayList<>(levels) : new ArrayList<Double>();
+    public void setSupportResistanceLevels(List<Double> supports, List<Double> resistances) {
+        this.supportLevels = supports;
+        this.resistanceLevels = resistances;
         invalidate();
     }
 
-    public void setMainSupportLevel(Double level) {
-        this.mainSupportLevel = level;
+    public void setDarkMode(boolean darkMode) {
+        isDarkMode = darkMode;
+        updateThemeColors();
         invalidate();
     }
 
-    public void setMainResistanceLevel(Double level) {
-        this.mainResistanceLevel = level;
-        invalidate();
-    }
-
-    public List<Double> getSupportLevels() {
-        return new ArrayList<>(supportLevels);
-    }
-
-    public List<Double> getResistanceLevels() {
-        return new ArrayList<>(resistanceLevels);
-    }
-
-    private void calculateMinMax() {
+    // Расчет диапазона цен
+    private void calculatePriceRange() {
         if (candles.isEmpty()) {
-            minValue = 0;
-            maxValue = 1;
+            minPrice = 0;
+            maxPrice = 1;
             return;
         }
 
-        minValue = candles.get(0).getLow();
-        maxValue = candles.get(0).getHigh();
+        minPrice = Float.MAX_VALUE;
+        maxPrice = Float.MIN_VALUE;
 
         for (CandleStick candle : candles) {
-            minValue = Math.min(minValue, candle.getLow());
-            maxValue = Math.max(maxValue, candle.getHigh());
+            minPrice = Math.min(minPrice, candle.getLow());
+            maxPrice = Math.max(maxPrice, candle.getHigh());
         }
-
-        // Добавляем padding 5%
-        float range = maxValue - minValue;
-        minValue -= range * 0.05f;
-        maxValue += range * 0.05f;
+        float padding = (maxPrice - minPrice) * 0.05f;
+        minPrice -= padding;
+        maxPrice += padding;
+    }
+    private float priceToY(float price) {
+        if (maxPrice == minPrice) {
+            return getHeight() / 2;
+        }
+        return getHeight() * (1 - (price - minPrice) / (maxPrice - minPrice));
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (candles.isEmpty()) return;
+
+        // Применяем трансформации
+        canvas.save();
+        canvas.translate(translateX, 0);
+        canvas.scale(scaleFactor, 1f);
 
         drawGrid(canvas);
-        drawMainLevels(canvas);
-        drawLevels(canvas);
-        drawSmaLine(canvas);
+        drawSupportResistanceLevels(canvas);
+        drawBollingerBands(canvas);
         drawCandles(canvas);
+        drawSmaLine(canvas);
+        drawVolumes(canvas);
+
+        // Восстанавливаем трансформации
+        canvas.restore();
+
+        if (selectedIndex != -1) {
+            drawTooltip(canvas);
+        }
     }
 
+    // Отрисовка сетки
     private void drawGrid(Canvas canvas) {
-        Paint gridPaint = new Paint();
-        gridPaint.setColor(Color.GRAY);
-        gridPaint.setStrokeWidth(1f);
+        // Вертикальные линии
+        for (int i = 0; i <= 10; i++) {
+            float x = getWidth() * i / 10f;
+            canvas.drawLine(x, 0, x, getHeight(), gridPaint);
+        }
 
+        // Горизонтальные линии
         for (int i = 0; i <= 10; i++) {
             float y = getHeight() * i / 10f;
             canvas.drawLine(0, y, getWidth(), y, gridPaint);
         }
-    }
 
-    private void drawMainLevels(Canvas canvas) {
-        // Главная поддержка
-        if (mainSupportLevel != null) {
-            mainLevelPaint.setColor(Color.GREEN);
-            float y = mapY(mainSupportLevel.floatValue());
-            canvas.drawLine(0, y, getWidth(), y, mainLevelPaint);
-            canvas.drawText("MAIN SUPPORT: " + mainSupportLevel, 50, y - 20, textPaint);
-        }
-
-        // Главное сопротивление
-        if (mainResistanceLevel != null) {
-            mainLevelPaint.setColor(Color.RED);
-            float y = mapY(mainResistanceLevel.floatValue());
-            canvas.drawLine(0, y, getWidth(), y, mainLevelPaint);
-            canvas.drawText("MAIN RESISTANCE: " + mainResistanceLevel, 50, y - 20, textPaint);
+        // Подписи цен
+        for (int i = 0; i <= 5; i++) {
+            float y = getHeight() * i / 5f;
+            float price = minPrice + (maxPrice - minPrice) * (1 - i / 5f);
+            canvas.drawText(String.format(Locale.US, "%.2f", price), 10, y - 5, textPaint);
         }
     }
 
-    private void drawLevels(Canvas canvas) {
+    // Отрисовка свечей
+    private void drawCandles(Canvas canvas) {
+        if (candles.isEmpty()) return;
+
+        float candleWidth = getWidth() / visibleCandles * 0.8f;
+        float gap = getWidth() / visibleCandles * 0.2f;
+
+        for (int i = 0; i < candles.size(); i++) {
+            if (i * (candleWidth + gap) + translateX + candleWidth < 0) continue;
+            if (i * (candleWidth + gap) + translateX > getWidth()) break;
+
+            CandleStick candle = candles.get(i);
+            float x = i * (candleWidth + gap) + gap / 2;
+            float openY = priceToY(candle.getOpen());
+            float closeY = priceToY(candle.getClose());
+            float highY = priceToY(candle.getHigh());
+            float lowY = priceToY(candle.getLow());
+
+            // Тень
+            canvas.drawLine(x + candleWidth / 2, highY,
+                    x + candleWidth / 2, lowY, shadowPaint);
+
+            // Тело свечи
+            candlePaint.setColor(candle.getClose() > candle.getOpen() ? bullColor : bearColor);
+            canvas.drawRect(x, Math.min(openY, closeY),
+                    x + candleWidth, Math.max(openY, closeY), candlePaint);
+        }
+    }
+
+    // Отрисовка SMA линии
+    private void drawSmaLine(Canvas canvas) {
+        if (smaValues == null || smaValues.size() != candles.size() || smaValues.isEmpty()) return;
+
+        float candleWidth = getWidth() / visibleCandles;
+        Path smaPath = new Path();
+
+        for (int i = 1; i < smaValues.size(); i++) {
+            float x1 = (i - 1) * candleWidth + candleWidth / 2;
+            float y1 = priceToY(smaValues.get(i - 1));
+            float x2 = i * candleWidth + candleWidth / 2;
+            float y2 = priceToY(smaValues.get(i));
+
+            if (i == 1) {
+                smaPath.moveTo(x1, y1);
+            }
+            smaPath.lineTo(x2, y2);
+        }
+
+        canvas.drawPath(smaPath, smaPaint);
+    }
+
+    // Отрисовка Bollinger Bands
+    private void drawBollingerBands(Canvas canvas) {
+        if (bollingerBands == null || bollingerBands.upper.size() != candles.size()) return;
+
+        float candleWidth = getWidth() / visibleCandles;
+        Path upperPath = new Path();
+        Path lowerPath = new Path();
+
+        for (int i = 0; i < bollingerBands.upper.size(); i++) {
+            float x = i * candleWidth + candleWidth / 2;
+            float upperY = priceToY(bollingerBands.upper.get(i).floatValue());
+            float lowerY = priceToY(bollingerBands.lower.get(i).floatValue());
+
+            if (i == 0) {
+                upperPath.moveTo(x, upperY);
+                lowerPath.moveTo(x, lowerY);
+            } else {
+                upperPath.lineTo(x, upperY);
+                lowerPath.lineTo(x, lowerY);
+            }
+        }
+
+        canvas.drawPath(upperPath, bollingerPaint);
+        canvas.drawPath(lowerPath, bollingerPaint);
+    }
+
+    // Отрисовка объемов
+    private void drawVolumes(Canvas canvas) {
+        if (volumes.isEmpty() || volumes.size() != candles.size()) return;
+
+        float maxVolume = Collections.max(volumes);
+        float volumeHeight = getHeight() * 0.2f;
+        float candleWidth = getWidth() / visibleCandles * 0.8f;
+        float gap = getWidth() / visibleCandles * 0.2f;
+
+        for (int i = 0; i < volumes.size(); i++) {
+            float x = i * (candleWidth + gap) + gap / 2;
+            float height = (volumes.get(i) / maxVolume) * volumeHeight;
+
+            volumePaint.setColor(candles.get(i).getClose() > candles.get(i).getOpen() ?
+                    Color.GREEN : Color.RED);
+
+            canvas.drawRect(x, getHeight() - height,
+                    x + candleWidth, getHeight(),
+                    volumePaint);
+        }
+    }
+
+    // Отрисовка уровней поддержки/сопротивления
+    private void drawSupportResistanceLevels(Canvas canvas) {
         // Уровни поддержки
-        levelPaint.setColor(Color.GREEN);
         for (Double level : supportLevels) {
-            if (level.equals(mainSupportLevel)) continue;
-            float y = mapY(level.floatValue());
-            canvas.drawLine(0, y, getWidth(), y, levelPaint);
-            canvas.drawText("S: " + level, 10, y - 10, textPaint);
+            float y = priceToY(level.floatValue());
+            canvas.drawLine(0, y, getWidth(), y, supportPaint);
+            canvas.drawText("S: " + String.format(Locale.US, "%.2f", level),
+                    getWidth() - 150, y - 10, textPaint);
         }
 
         // Уровни сопротивления
-        levelPaint.setColor(Color.RED);
         for (Double level : resistanceLevels) {
-            if (level.equals(mainResistanceLevel)) continue;
-            float y = mapY(level.floatValue());
-            canvas.drawLine(0, y, getWidth(), y, levelPaint);
-            canvas.drawText("R: " + level, 10, y - 10, textPaint);
+            float y = priceToY(level.floatValue());
+            canvas.drawLine(0, y, getWidth(), y, resistancePaint);
+            canvas.drawText("R: " + String.format(Locale.US, "%.2f", level),
+                    getWidth() - 150, y - 10, textPaint);
         }
     }
 
-    private void drawCandles(Canvas canvas) {
-        float width = getWidth();
-        float height = getHeight();
-        float candleWidth = width / candles.size() * 0.8f;
-        float gap = width / candles.size() * 0.2f;
+    // Отрисовка тултипа
+    private void drawTooltip(Canvas canvas) {
+        CandleStick candle = candles.get(selectedIndex);
+        String text = String.format(Locale.US, "O: %.2f\nH: %.2f\nL: %.2f\nC: %.2f",
+                candle.getOpen(), candle.getHigh(), candle.getLow(), candle.getClose());
 
-        for (int i = 0; i < candles.size(); i++) {
-            CandleStick candle = candles.get(i);
-            float x = i * (candleWidth + gap) + gap/2;
-            float openY = mapY(candle.getOpen());
-            float closeY = mapY(candle.getClose());
-            float highY = mapY(candle.getHigh());
-            float lowY = mapY(candle.getLow());
+        // Размеры тултипа
+        Rect bounds = new Rect();
+        tooltipPaint.getTextBounds(text, 0, text.length(), bounds);
+        int padding = 20;
+        float width = bounds.width() + 2 * padding;
+        float height = bounds.height() + 2 * padding;
 
-            // Тень
-            paint.setColor(shadowColor);
-            paint.setStrokeWidth(shadowWidth);
-            canvas.drawLine(x + candleWidth/2, highY, x + candleWidth/2, lowY, paint);
+        // Позиционирование
+        float x = Math.min(getWidth() - width, lastTouchX);
+        float y = Math.min(getHeight() - height, 100f);
 
-            // Тело
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(candle.getClose() > candle.getOpen() ? bullColor : bearColor);
-            canvas.drawRoundRect(
-                    x, Math.min(openY, closeY),
-                    x + candleWidth, Math.max(openY, closeY),
-                    10f, 10f, paint
-            );
+        tooltipRect.set(x, y, x + width, y + height);
+        canvas.drawRoundRect(tooltipRect, 10, 10, tooltipPaint);
+
+        // Текст
+        tooltipPaint.setColor(Color.WHITE);
+        canvas.drawText(text, x + padding, y + padding + bounds.height(), tooltipPaint);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        scaleDetector.onTouchEvent(event);
+
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                lastTouchX = event.getX();
+                handleSelection(event.getX());
+                return true;
+
+            case MotionEvent.ACTION_MOVE:
+                if (!scaleDetector.isInProgress()) {
+                    float dx = event.getX() - lastTouchX;
+                    translateX -= dx;
+                    translateX = Math.min(0, Math.max(translateX, -getWidth() * (scaleFactor - 1)));
+                    lastTouchX = event.getX();
+                    invalidate();
+                }
+                return true;
+
+            case MotionEvent.ACTION_UP:
+                selectedIndex = -1;
+                invalidate();
+                return true;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    private void handleSelection(float x) {
+        float candleWidth = (getWidth() / visibleCandles) * 0.8f;
+        float gap = (getWidth() / visibleCandles) * 0.2f;
+
+        int index = (int) ((x - translateX) / (candleWidth + gap));
+        if (index >= 0 && index < candles.size()) {
+            selectedIndex = index;
+            invalidate();
         }
     }
 
-    private void drawSmaLine(Canvas canvas) {
-        if (smaValues == null || smaValues.size() != candles.size()) return;
+    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            float oldScale = scaleFactor;
+            scaleFactor *= detector.getScaleFactor();
+            scaleFactor = Math.max(1f, Math.min(scaleFactor, 3f));
 
-        float width = getWidth();
-        float candleWidth = width / candles.size() * 0.8f;
-        float gap = width / candles.size() * 0.2f;
+            float focusX = detector.getFocusX();
+            translateX = focusX - (focusX - translateX) * (scaleFactor / oldScale);
 
-        for (int i = 1; i < smaValues.size(); i++) {
-            canvas.drawLine(
-                    (i-1) * (candleWidth + gap) + candleWidth/2 + gap/2, mapY(smaValues.get(i-1)),
-                    i * (candleWidth + gap) + candleWidth/2 + gap/2, mapY(smaValues.get(i)),
-                    smaPaint
-            );
+            visibleCandles = (int) (50 / scaleFactor);
+            invalidate();
+            return true;
         }
-    }
-
-    private float mapY(float value) {
-        if (maxValue <= minValue) return getHeight() / 2f;
-        return getHeight() * (1 - (value - minValue) / (maxValue - minValue));
-    }
-
-    public void setDarkMode(boolean enabled) {
-        if (enabled) {
-            setBackgroundColor(Color.BLACK);
-            textPaint.setColor(Color.WHITE);
-        } else {
-            setBackgroundColor(Color.WHITE);
-            textPaint.setColor(Color.BLACK);
-        }
-        invalidate();
     }
 }
