@@ -1,21 +1,21 @@
 package com.example.tradeview;
+
+import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
-import android.util.Patterns;
 
 public class ForgotPasswordActivity extends AppCompatActivity {
 
-    private EditText emailReset;
-    private Button btnReset;
+    private EditText emailEditText;
+    private Button resetButton, backButton;
     private ProgressBar progressBar;
     private FirebaseAuth mAuth;
 
@@ -26,42 +26,52 @@ public class ForgotPasswordActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
 
-        emailReset = findViewById(R.id.emailReset);
-        btnReset = findViewById(R.id.btnReset);
+        // Инициализация UI
+        emailEditText = findViewById(R.id.emailReset);
+        resetButton = findViewById(R.id.btnReset);
+        backButton = findViewById(R.id.backToLoginButton);
         progressBar = findViewById(R.id.progressBar);
 
-        btnReset.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                resetPassword();
-            }
-        });
+        resetButton.setOnClickListener(v -> resetPassword());
+        backButton.setOnClickListener(v -> navigateBack());
     }
 
     private void resetPassword() {
-        String email = emailReset.getText().toString().trim();
+        String email = emailEditText.getText().toString().trim();
 
-        if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            emailReset.setError("Please enter a valid email!");
-            emailReset.requestFocus();
+        if (TextUtils.isEmpty(email)) {
+            emailEditText.setError("Email is required");
             return;
         }
 
-        progressBar.setVisibility(View.VISIBLE); // Show progress bar
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            emailEditText.setError("Valid email is required");
+            return;
+        }
 
-        // Send password reset email
+        showProgress(true);
+        resetButton.setEnabled(false);
+
         mAuth.sendPasswordResetEmail(email)
-                .addOnCompleteListener(new OnCompleteListener<Void>() {
-                    @Override
-                    public void onComplete(@NonNull Task<Void> task) {
-                        progressBar.setVisibility(View.GONE); // Hide progress bar
+                .addOnCompleteListener(task -> {
+                    showProgress(false);
+                    resetButton.setEnabled(true);
 
-                        if (task.isSuccessful()) {
-                            Toast.makeText(ForgotPasswordActivity.this, "Password reset email sent to " + email, Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(ForgotPasswordActivity.this, "Failed to send reset email: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
-                        }
+                    if (task.isSuccessful()) {
+                        Toast.makeText(this, "Reset instructions sent to email", Toast.LENGTH_LONG).show();
+                        navigateBack();
+                    } else {
+                        Toast.makeText(this, "Error: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
+    }
+
+    private void navigateBack() {
+        startActivity(new Intent(this, LoginActivity.class));
+        finish();
+    }
+
+    private void showProgress(boolean show) {
+        progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 }

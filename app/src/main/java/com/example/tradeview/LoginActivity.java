@@ -2,24 +2,22 @@ package com.example.tradeview;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.example.tradeview.R;
 
 public class LoginActivity extends AppCompatActivity {
 
-    private EditText emailLogin, passwordLogin;
-    private Button btnLogin;
+    private EditText emailEditText, passwordEditText;
+    private Button loginButton;
+    private TextView signUpText, forgotPasswordText;
     private ProgressBar progressBar;
     private FirebaseAuth mAuth;
 
@@ -27,58 +25,91 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
+        // Инициализация Firebase Auth
         mAuth = FirebaseAuth.getInstance();
-        emailLogin = findViewById(R.id.emailLogin);
-        passwordLogin = findViewById(R.id.passwordLogin);
-        btnLogin = findViewById(R.id.btnLogin);
-        progressBar = findViewById(R.id.progressBar);
-        btnLogin.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                loginUser();
-            }
+
+        // Инициализация UI элементов
+        emailEditText = findViewById(R.id.emailEditText);
+        passwordEditText = findViewById(R.id.passwordEditText);
+        loginButton = findViewById(R.id.loginButton);
+        signUpText = findViewById(R.id.signUpButton);
+        forgotPasswordText = findViewById(R.id.forgotPasswordText);
+        progressBar = findViewById(R.id.progressBar); // Важно: ID должен совпадать с XML
+
+        // Обработчик кнопки входа
+        loginButton.setOnClickListener(v -> loginUser());
+
+        // Обработчик текста "Зарегистрироваться"
+        signUpText.setOnClickListener(v -> {
+            startActivity(new Intent(LoginActivity.this, SignUpActivity.class));
+            finish();
+        });
+
+        // Обработчик текста "Забыли пароль?"
+        forgotPasswordText.setOnClickListener(v -> {
+            startActivity(new Intent(LoginActivity.this, ForgotPasswordActivity.class));
         });
     }
 
     private void loginUser() {
-        String email = emailLogin.getText().toString().trim();
-        String password = passwordLogin.getText().toString().trim();
+        String email = emailEditText.getText().toString().trim();
+        String password = passwordEditText.getText().toString().trim();
 
-        if (email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please fill all fields!", Toast.LENGTH_SHORT).show();
+        // Валидация email
+        if (TextUtils.isEmpty(email)) {
+            emailEditText.setError("Please enter your email");
+            emailEditText.requestFocus();
             return;
         }
 
-        progressBar.setVisibility(View.VISIBLE); // Show progress bar
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            emailEditText.setError("Please enter a valid email");
+            emailEditText.requestFocus();
+            return;
+        }
 
-        // Authenticate user with Firebase Auth
+        // Валидация пароля
+        if (TextUtils.isEmpty(password)) {
+            passwordEditText.setError("Please enter your password");
+            passwordEditText.requestFocus();
+            return;
+        }
+
+        // Показываем ProgressBar и блокируем кнопку
+        if (progressBar != null) {
+            progressBar.setVisibility(View.VISIBLE);
+        }
+        loginButton.setEnabled(false);
+
+        // Аутентификация пользователя
         mAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        progressBar.setVisibility(View.GONE); // Hide progress bar
+                .addOnCompleteListener(task -> {
+                    // Скрываем ProgressBar и разблокируем кнопку
+                    if (progressBar != null) {
+                        progressBar.setVisibility(View.GONE);
+                    }
+                    loginButton.setEnabled(true);
 
-                        if (task.isSuccessful()) {
-                            FirebaseUser user = mAuth.getCurrentUser();
-                            if (user != null && user.isEmailVerified()) {
-                                Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
-                                startActivity(new Intent(LoginActivity.this, HomeActivity.class));
-                            } else {
-                                Toast.makeText(LoginActivity.this, "Please verify your email address.", Toast.LENGTH_SHORT).show();
-                                mAuth.signOut(); // Log out the user if email is not verified
-                            }
-                        } else {
-                            Toast.makeText(LoginActivity.this, "Login Failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
-                        }
+                    if (task.isSuccessful()) {
+                        // Вход успешен, переходим на главный экран
+                        startActivity(new Intent(LoginActivity.this, HomeActivity.class));
+                        finish();
+                    } else {
+                        Toast.makeText(LoginActivity.this,
+                                "Authentication failed: " + task.getException().getMessage(),
+                                Toast.LENGTH_LONG).show();
                     }
                 });
     }
 
-    public void goToSignUp(View view) {
-        startActivity(new Intent(this, SignUpActivity.class));
-    }
-
-    public void goToForgotPassword(View view) {
-        startActivity(new Intent(this, ForgotPasswordActivity.class));
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Если пользователь уже вошел, перенаправляем на главный экран
+        if (mAuth.getCurrentUser() != null) {
+            startActivity(new Intent(LoginActivity.this, HomeActivity.class));
+            finish();
+        }
     }
 }

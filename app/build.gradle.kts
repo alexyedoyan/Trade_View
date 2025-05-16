@@ -34,6 +34,7 @@ android {
 }
 
 dependencies {
+    implementation ("com.google.android.material:material:1.6.0")
     val room_version = "2.6.1"
     implementation ("androidx.appcompat:appcompat:1.6.1")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -43,6 +44,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
     implementation ("com.google.android.material:material:1.9.0")
+    implementation ("com.google.guava:guava:31.1-android")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)

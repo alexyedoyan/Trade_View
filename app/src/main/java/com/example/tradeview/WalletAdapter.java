@@ -1,22 +1,26 @@
 package com.example.tradeview;
 
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
+import android.view.*;
+import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 public class WalletAdapter extends RecyclerView.Adapter<WalletAdapter.WalletViewHolder> {
+
     private List<WalletItem> walletItems;
-    public List<WalletItem> getWalletItems() {
-        return walletItems;
+    private OnItemClickListener listener;
+
+    public interface OnItemClickListener {
+        void onItemClick(int position, String symbol);
     }
+
     public WalletAdapter(List<WalletItem> walletItems) {
         this.walletItems = walletItems != null ? walletItems : new ArrayList<>();
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.listener = listener;
     }
 
     public void updateData(List<WalletItem> newItems) {
@@ -34,8 +38,7 @@ public class WalletAdapter extends RecyclerView.Adapter<WalletAdapter.WalletView
 
     @Override
     public void onBindViewHolder(@NonNull WalletViewHolder holder, int position) {
-        WalletItem item = walletItems.get(position);
-        holder.bind(item);
+        holder.bind(walletItems.get(position));
     }
 
     @Override
@@ -43,22 +46,30 @@ public class WalletAdapter extends RecyclerView.Adapter<WalletAdapter.WalletView
         return walletItems.size();
     }
 
-    static class WalletViewHolder extends RecyclerView.ViewHolder {
-        private final TextView symbolText;
-        private final TextView amountText;
-        private final TextView valueText;
+    class WalletViewHolder extends RecyclerView.ViewHolder {
+        private final TextView symbolText, amountText, valueText, priceText;
 
         public WalletViewHolder(@NonNull View itemView) {
             super(itemView);
             symbolText = itemView.findViewById(R.id.symbolText);
             amountText = itemView.findViewById(R.id.amountText);
             valueText = itemView.findViewById(R.id.valueText);
+            priceText = itemView.findViewById(R.id.priceText);
+            itemView.setOnLongClickListener(v -> {
+                if (listener != null) {
+                    listener.onItemClick(getAdapterPosition(),
+                            walletItems.get(getAdapterPosition()).getSymbol());
+                    return true;
+                }
+                return false;
+            });
         }
 
         public void bind(WalletItem item) {
             symbolText.setText(item.getSymbol());
-            amountText.setText(String.format(Locale.US, "%.6f", item.getAmount()));
-            valueText.setText(String.format(Locale.US, "$%.2f", item.getValue()));
+            amountText.setText(String.format("%.6f", item.getAmount()));
+            valueText.setText(String.format("$%.2f", item.getValue()));
+            priceText.setText(String.format(Locale.US, "$%.2f", item.getCurrentPrice()));
         }
     }
 }

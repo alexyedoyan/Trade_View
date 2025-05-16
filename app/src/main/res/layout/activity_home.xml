@@ -1,120 +1,183 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="@color/dark_background">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <!-- Поиск криптовалюты -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Cryptocurrency Search"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:paddingBottom="8dp"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <EditText
-                android:id="@+id/cryptoSearchInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:hint="BTC"
-                android:inputType="textCapCharacters"/>
-
-            <Button
-                android:id="@+id/searchButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Search"/>
-
-            <Button
-                android:id="@+id/chartButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Chart"/>
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/priceTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:textSize="16sp"/>
-
-        <!-- Криптокошелек -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="My Wallet(beta version)"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:paddingTop="16dp"
-            android:paddingBottom="8dp"/>
+        android:orientation="vertical"
+        android:padding="16dp">
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
+            android:layout_gravity="center_horizontal"
             android:visibility="gone"/>
-        <TextView
-            android:id="@+id/walletBalanceText"
+
+        <!-- Заголовок и баланс -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Total Balance: $0.00"
-            android:textSize="16sp"/>
+            android:orientation="vertical"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Total Balance"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/walletBalanceText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="$0.00"
+                android:textColor="@color/primary"
+                android:textSize="32sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <!-- Карточки криптовалют -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Your Assets"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:layout_marginBottom="8dp"/>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/walletRecyclerView"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginTop="8dp"/>
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"/>
 
-        <LinearLayout
+        <!-- Поиск криптовалют -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingTop="8dp">
+            app:cardBackgroundColor="@color/card_background"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="16dp">
 
-            <EditText
-                android:id="@+id/cryptoWalletInput"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="BTC"
-                android:inputType="textCapCharacters"/>
+                android:orientation="vertical"
+                android:padding="16dp">
 
-            <EditText
-                android:id="@+id/amountInput"
-                android:layout_width="0dp"
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Market Prices"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:layout_marginBottom="8dp"/>
+
+                <EditText
+                    android:id="@+id/cryptoSearchInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Search cryptocurrency"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/gray"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <Button
+                        android:id="@+id/searchButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Search"
+                        android:layout_marginEnd="4dp"
+                        style="@style/PrimaryButton"/>
+
+                    <Button
+                        android:id="@+id/chartButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Chart"
+                        android:layout_marginStart="4dp"
+                        style="@style/SecondaryButton"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/priceTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Добавление в кошелек -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/card_background"
+            app:cardCornerRadius="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Amount"
-                android:inputType="numberDecimal"/>
+                android:orientation="vertical"
+                android:padding="16dp">
 
-            <Button
-                android:id="@+id/addCryptoButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Add"/>
-        </LinearLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Add to Wallet"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:layout_marginBottom="8dp"/>
 
+                <EditText
+                    android:id="@+id/cryptoWalletInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Cryptocurrency (e.g. BTC)"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/gray"/>
+
+                <EditText
+                    android:id="@+id/amountInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Amount"
+                    android:inputType="numberDecimal"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/gray"
+                    android:layout_marginTop="8dp"/>
+
+                <Button
+                    android:id="@+id/addCryptoButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Add"
+                    android:layout_marginTop="8dp"
+                    style="@style/PrimaryButton"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Выход -->
         <Button
             android:id="@+id/logoutButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="Log out"
             android:layout_marginTop="16dp"
-            android:text="Logout"/>
+            style="@style/SecondaryButton"/>
     </LinearLayout>
 </ScrollView>

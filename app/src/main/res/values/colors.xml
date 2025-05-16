@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
     <color name="cardBackground">#FFFFFF</color>
     <color name="primaryText">#212121</color>
     <color name="secondaryText">#757575</color>
-    <!-- Основные цвета -->
-    <color name="primary">#6200EE</color>
-    <color name="primary_dark">#3700B3</color>
     <color name="secondary">#03DAC6</color>
     <color name="background">#121212</color>
     <color name="surface">#1E1E1E</color>
@@ -15,4 +11,12 @@
     <color name="green_candle">#4CAF50</color>
     <color name="red_candle">#F44336</color>
     <color name="grid_line">#303030</color>
+    <color name="primary">#6200EE</color>
+    <color name="primary_dark">#3700B3</color>
+    <color name="white">#FFFFFF</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="dark_background">#121212</color>
+    <color name="card_background">#1E1E1E</color>
+    <color name="green">#4CAF50</color>
+    <color name="red">#F44336</color>
 </resources>

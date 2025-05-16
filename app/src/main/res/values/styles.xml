@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/dark_background</item>
+    </style>
+    <style name="PrimaryButton" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/primary</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="SecondaryButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">@color/primary</item>
+        <item name="strokeColor">@color/primary</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+    <style name="CryptoCardStyle" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/card_background</item>
+        <item name="cardCornerRadius">12dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+    </style>
+    <!-- Стиль для TextInputLayout -->
+    <style name="TextInputStyle" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/gray</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxCornerRadiusBottomEnd">8dp</item>
+        <item name="boxCornerRadiusBottomStart">8dp</item>
+        <item name="boxCornerRadiusTopEnd">8dp</item>
+        <item name="boxCornerRadiusTopStart">8dp</item>
+        <item name="hintTextColor">@color/gray</item>
+        <item name="android:textColorHint">@color/gray</item>
+    </style>
+</resources>
