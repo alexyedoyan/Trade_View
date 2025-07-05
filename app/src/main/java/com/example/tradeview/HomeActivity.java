@@ -1,43 +1,66 @@
 package com.example.tradeview;
-import android.util.Log;
+
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
-import android.widget.*;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.*;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.*;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import retrofit2.*;
-import com.google.common.util.concurrent.AtomicDouble;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import android.view.Menu;
+import android.view.MenuItem;
 
-public class HomeActivity extends AppCompatActivity {
+public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnItemClickListener {
 
     // UI Components
     private ProgressBar progressBar;
     private TextView walletBalanceText;
     private RecyclerView walletRecyclerView;
+    private Button newsButton;
     private EditText cryptoSearchInput, cryptoWalletInput, amountInput;
     private TextView priceTextView;
-    private Button searchButton, chartButton, addCryptoButton, logoutButton;
+    private Button searchButton, chartButton, addCryptoButton;
+    private Button predictButton;
+    private Button logoutButton;
 
     // Adapter
     private WalletAdapter walletAdapter;
 
     // Data
     private CryptoWallet cryptoWallet;
+    private PricePredictor pricePredictor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+        Button newsButton = findViewById(R.id.newsButton);
+        newsButton.setOnClickListener(v -> {
+            startActivity(new Intent(this, CryptoNewsActivity.class));
+        });
 
         // Initialize wallet with context
         cryptoWallet = new CryptoWallet(this);
+        pricePredictor = new PricePredictor();
 
         // Initialize views
         initViews();
@@ -52,6 +75,21 @@ public class HomeActivity extends AppCompatActivity {
         loadInitialData();
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.menu_news) {
+            startActivity(new Intent(this, CryptoNewsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void initViews() {
         progressBar = findViewById(R.id.progressBar);
         walletBalanceText = findViewById(R.id.walletBalanceText);
@@ -63,17 +101,20 @@ public class HomeActivity extends AppCompatActivity {
         searchButton = findViewById(R.id.searchButton);
         chartButton = findViewById(R.id.chartButton);
         addCryptoButton = findViewById(R.id.addCryptoButton);
+        predictButton = findViewById(R.id.predictButton);
         logoutButton = findViewById(R.id.logoutButton);
+        newsButton = findViewById(R.id.newsButton);
     }
 
     private void setupRecyclerView() {
         walletAdapter = new WalletAdapter(new ArrayList<>());
-        walletAdapter.setOnItemClickListener(this::handleWalletItemClick);
+        walletAdapter.setOnItemClickListener(this);
         walletRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         walletRecyclerView.setAdapter(walletAdapter);
     }
 
-    private void handleWalletItemClick(int position, String symbol) {
+    @Override
+    public void onItemClick(int position, String symbol) {
         showDeleteConfirmationDialog(symbol);
     }
 
@@ -97,11 +138,71 @@ public class HomeActivity extends AppCompatActivity {
         });
     }
 
+    private void processPredictionData(List<List<String>> klines) {
+        try {
+            List<CandleStick> candles = new ArrayList<>();
+            for (List<String> kline : klines) {
+                float open = Float.parseFloat(kline.get(1));
+                float high = Float.parseFloat(kline.get(2));
+                float low = Float.parseFloat(kline.get(3));
+                float close = Float.parseFloat(kline.get(4));
+                candles.add(new CandleStick(open, high, low, close));
+            }
+
+            float predictedPrice = pricePredictor.predictNextPrice(candles);
+            String result = String.format(Locale.US, "Прогноз: %.2f USD", predictedPrice);
+            showToast(result);
+
+        } catch (Exception e) {
+            showToast("Ошибка обработки данных");
+            Log.e("Prediction", "Error processing data", e);
+        }
+    }
+
+    private void makePrediction(String cryptoName) {
+        showToast("Прогнозируем для: " + cryptoName);
+        showProgress(true);
+
+        String symbol = cryptoName.endsWith("USDT") ? cryptoName : cryptoName + "USDT";
+        BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
+
+        Call<List<List<String>>> call = apiService.getKlineData(symbol, "1d", 100);
+        call.enqueue(new Callback<List<List<String>>>() {
+            @Override
+            public void onResponse(Call<List<List<String>>> call, Response<List<List<String>>> response) {
+                showProgress(false);
+                if (response.isSuccessful() && response.body() != null) {
+                    processPredictionData(response.body());
+                } else {
+                    showToast("Ошибка получения данных");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<List<String>>> call, Throwable t) {
+                showProgress(false);
+                showToast("Ошибка: " + t.getMessage());
+            }
+        });
+    }
+
     private void setupButtonListeners() {
         searchButton.setOnClickListener(v -> handleSearchPrice());
         chartButton.setOnClickListener(v -> handleOpenChart());
         addCryptoButton.setOnClickListener(v -> handleAddCrypto());
         logoutButton.setOnClickListener(v -> logoutUser());
+        newsButton = findViewById(R.id.newsButton);
+        predictButton.setOnClickListener(v -> {
+            String cryptoName = cryptoSearchInput.getText().toString().trim().toUpperCase();
+            if (cryptoName.isEmpty()) {
+                showToast("Введите название криптовалюты");
+                return;
+            }
+            makePrediction(cryptoName);
+        });
+    }
+    private void openNewsActivity() {
+        startActivity(new Intent(this, CryptoNewsActivity.class));
     }
 
     private void loadInitialData() {
@@ -128,25 +229,25 @@ public class HomeActivity extends AppCompatActivity {
         showProgress(true);
         String symbol = cryptoName.endsWith("USDT") ? cryptoName : cryptoName + "USDT";
 
-        RetrofitClient.getClient().create(BinanceApiService.class)
-                .getCryptoPrice(symbol)
-                .enqueue(new Callback<CryptoModel>() {
-                    @Override
-                    public void onResponse(Call<CryptoModel> call, Response<CryptoModel> response) {
-                        showProgress(false);
-                        if (response.isSuccessful() && response.body() != null) {
-                            displayCryptoPrice(response.body());
-                        } else {
-                            showToast("Ошибка получения данных");
-                        }
-                    }
+        BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
+        apiService.getCryptoPrice(symbol).enqueue(new Callback<CryptoModel>() {
+            @Override
+            public void onResponse(@NonNull Call<CryptoModel> call, @NonNull Response<CryptoModel> response) {
+                showProgress(false);
+                if (response.isSuccessful() && response.body() != null) {
+                    displayCryptoPrice(response.body());
+                } else {
+                    showToast("Ошибка получения данных");
+                }
+            }
 
-                    @Override
-                    public void onFailure(Call<CryptoModel> call, Throwable t) {
-                        showProgress(false);
-                        showToast("Ошибка сети: " + t.getMessage());
-                    }
-                });
+            @Override
+            public void onFailure(@NonNull Call<CryptoModel> call, @NonNull Throwable t) {
+                showProgress(false);
+                showToast("Ошибка сети: " + t.getMessage());
+                Log.e("HomeActivity", "API Error", t);
+            }
+        });
     }
 
     private void displayCryptoPrice(CryptoModel crypto) {
@@ -195,6 +296,15 @@ public class HomeActivity extends AppCompatActivity {
 
     private void updateWalletDisplay() {
         List<WalletItem> walletItems = new ArrayList<>();
+        final int[] counter = {0};
+        int totalItems = cryptoWallet.getHoldings().size();
+
+        if (totalItems == 0) {
+            walletAdapter.updateData(walletItems);
+            updateTotalBalance();
+            return;
+        }
+
         for (Map.Entry<String, Double> entry : cryptoWallet.getHoldings().entrySet()) {
             String symbol = entry.getKey();
             double amount = entry.getValue();
@@ -202,8 +312,9 @@ public class HomeActivity extends AppCompatActivity {
             getCurrentPrice(symbol, currentPrice -> {
                 double value = amount * currentPrice;
                 walletItems.add(new WalletItem(symbol, amount, value, currentPrice));
+                counter[0]++;
 
-                if (walletItems.size() == cryptoWallet.getHoldings().size()) {
+                if (counter[0] == totalItems) {
                     walletAdapter.updateData(walletItems);
                     updateTotalBalance();
                 }
@@ -217,14 +328,14 @@ public class HomeActivity extends AppCompatActivity {
 
         apiService.getCryptoPrice(apiSymbol).enqueue(new Callback<CryptoModel>() {
             @Override
-            public void onResponse(Call<CryptoModel> call, Response<CryptoModel> response) {
+            public void onResponse(@NonNull Call<CryptoModel> call, @NonNull Response<CryptoModel> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     try {
                         double price = Double.parseDouble(response.body().getPrice());
                         callback.onPriceReceived(price);
                     } catch (NumberFormatException e) {
                         callback.onPriceReceived(0);
-                        Log.e("Wallet", "Error parsing price", e);
+                        Log.e("HomeActivity", "Error parsing price", e);
                     }
                 } else {
                     callback.onPriceReceived(0);
@@ -232,9 +343,9 @@ public class HomeActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<CryptoModel> call, Throwable t) {
+            public void onFailure(@NonNull Call<CryptoModel> call, @NonNull Throwable t) {
                 callback.onPriceReceived(0);
-                Log.e("Wallet", "API error for " + symbol, t);
+                Log.e("HomeActivity", "API error for " + symbol, t);
             }
         });
     }

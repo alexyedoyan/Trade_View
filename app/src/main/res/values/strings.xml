@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Trade View</string>
     <string name="delete">Удалить</string>
+    <string name="news_menu_title">Новости</string>
 </resources>

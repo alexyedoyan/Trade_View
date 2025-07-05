@@ -18,6 +18,7 @@ public class CandleStickChartView extends View {
     private Paint bollingerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint supportPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint resistancePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint predictionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     // Данные
     private List<CandleStick> candles = new ArrayList<>();
@@ -30,6 +31,11 @@ public class CandleStickChartView extends View {
     private boolean isDarkMode = true;
     private int bullColor = Color.GREEN;
     private int bearColor = Color.RED;
+
+    // Прогнозирование
+    private float predictedPrice = 0;
+    private boolean showPrediction = false;
+    private RectF predictionRect = new RectF();
 
     // Параметры зума и скролла
     private ScaleGestureDetector scaleDetector;
@@ -94,10 +100,15 @@ public class CandleStickChartView extends View {
         tooltipPaint.setColor(Color.argb(200, 50, 50, 50));
         tooltipPaint.setTextSize(28f);
 
+        // Стили для прогноза
+        predictionPaint.setColor(Color.YELLOW);
+        predictionPaint.setStrokeWidth(3f);
+        predictionPaint.setStyle(Paint.Style.STROKE);
+        predictionPaint.setPathEffect(new DashPathEffect(new float[]{10, 5}, 0));
+
         updateThemeColors();
     }
 
-    // Метод для обновления цветов при изменении темы
     private void updateThemeColors() {
         if (isDarkMode) {
             setBackgroundColor(Color.BLACK);
@@ -112,7 +123,6 @@ public class CandleStickChartView extends View {
         }
     }
 
-    // Установка данных
     public void setData(List<CandleStick> candles) {
         this.candles = candles;
         calculatePriceRange();
@@ -146,7 +156,26 @@ public class CandleStickChartView extends View {
         invalidate();
     }
 
-    // Расчет диапазона цен
+    public void showPrediction(float price) {
+        this.predictedPrice = price;
+        this.showPrediction = true;
+        calculatePriceRange();
+        invalidate();
+    }
+
+    public void hidePrediction() {
+        this.showPrediction = false;
+        invalidate();
+    }
+
+    public boolean isShowingPrediction() {
+        return showPrediction;
+    }
+
+    public float getPredictedPrice() {
+        return predictedPrice;
+    }
+
     private void calculatePriceRange() {
         if (candles.isEmpty()) {
             minPrice = 0;
@@ -161,10 +190,17 @@ public class CandleStickChartView extends View {
             minPrice = Math.min(minPrice, candle.getLow());
             maxPrice = Math.max(maxPrice, candle.getHigh());
         }
+
+        if (showPrediction && predictedPrice != 0) {
+            minPrice = Math.min(minPrice, predictedPrice);
+            maxPrice = Math.max(maxPrice, predictedPrice);
+        }
+
         float padding = (maxPrice - minPrice) * 0.05f;
         minPrice -= padding;
         maxPrice += padding;
     }
+
     private float priceToY(float price) {
         if (maxPrice == minPrice) {
             return getHeight() / 2;
@@ -176,7 +212,6 @@ public class CandleStickChartView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        // Применяем трансформации
         canvas.save();
         canvas.translate(translateX, 0);
         canvas.scale(scaleFactor, 1f);
@@ -188,15 +223,17 @@ public class CandleStickChartView extends View {
         drawSmaLine(canvas);
         drawVolumes(canvas);
 
-        // Восстанавливаем трансформации
         canvas.restore();
+
+        if (showPrediction && predictedPrice != 0 && !candles.isEmpty()) {
+            drawPrediction(canvas);
+        }
 
         if (selectedIndex != -1) {
             drawTooltip(canvas);
         }
     }
 
-    // Отрисовка сетки
     private void drawGrid(Canvas canvas) {
         // Вертикальные линии
         for (int i = 0; i <= 10; i++) {
@@ -218,7 +255,6 @@ public class CandleStickChartView extends View {
         }
     }
 
-    // Отрисовка свечей
     private void drawCandles(Canvas canvas) {
         if (candles.isEmpty()) return;
 
@@ -247,7 +283,6 @@ public class CandleStickChartView extends View {
         }
     }
 
-    // Отрисовка SMA линии
     private void drawSmaLine(Canvas canvas) {
         if (smaValues == null || smaValues.size() != candles.size() || smaValues.isEmpty()) return;
 
@@ -269,7 +304,6 @@ public class CandleStickChartView extends View {
         canvas.drawPath(smaPath, smaPaint);
     }
 
-    // Отрисовка Bollinger Bands
     private void drawBollingerBands(Canvas canvas) {
         if (bollingerBands == null || bollingerBands.upper.size() != candles.size()) return;
 
@@ -295,7 +329,6 @@ public class CandleStickChartView extends View {
         canvas.drawPath(lowerPath, bollingerPaint);
     }
 
-    // Отрисовка объемов
     private void drawVolumes(Canvas canvas) {
         if (volumes.isEmpty() || volumes.size() != candles.size()) return;
 
@@ -317,9 +350,7 @@ public class CandleStickChartView extends View {
         }
     }
 
-    // Отрисовка уровней поддержки/сопротивления
     private void drawSupportResistanceLevels(Canvas canvas) {
-        // Уровни поддержки
         for (Double level : supportLevels) {
             float y = priceToY(level.floatValue());
             canvas.drawLine(0, y, getWidth(), y, supportPaint);
@@ -327,7 +358,6 @@ public class CandleStickChartView extends View {
                     getWidth() - 150, y - 10, textPaint);
         }
 
-        // Уровни сопротивления
         for (Double level : resistanceLevels) {
             float y = priceToY(level.floatValue());
             canvas.drawLine(0, y, getWidth(), y, resistancePaint);
@@ -336,27 +366,50 @@ public class CandleStickChartView extends View {
         }
     }
 
-    // Отрисовка тултипа
+    private void drawPrediction(Canvas canvas) {
+        float candleWidth = getWidth() / visibleCandles;
+        float lastX = (candles.size() - 1) * candleWidth + candleWidth / 2;
+        float lastY = priceToY(candles.get(candles.size() - 1).getClose());
+        float nextX = lastX + candleWidth;
+        float nextY = priceToY(predictedPrice);
+
+        // Линия прогноза
+        canvas.drawLine(lastX, lastY, nextX, nextY, predictionPaint);
+
+        // Точка прогноза
+        float radius = 8f;
+        predictionRect.set(nextX - radius, nextY - radius, nextX + radius, nextY + radius);
+        canvas.drawArc(predictionRect, 0, 360, false, predictionPaint);
+
+        // Текст прогноза
+        String text = String.format(Locale.US, "%.2f", predictedPrice);
+        float textX = nextX + 15f;
+        float textY = nextY;
+
+        if (textX + textPaint.measureText(text) > getWidth()) {
+            textX = nextX - 15f - textPaint.measureText(text);
+        }
+
+        canvas.drawText(text, textX, textY, textPaint);
+    }
+
     private void drawTooltip(Canvas canvas) {
         CandleStick candle = candles.get(selectedIndex);
         String text = String.format(Locale.US, "O: %.2f\nH: %.2f\nL: %.2f\nC: %.2f",
                 candle.getOpen(), candle.getHigh(), candle.getLow(), candle.getClose());
 
-        // Размеры тултипа
         Rect bounds = new Rect();
         tooltipPaint.getTextBounds(text, 0, text.length(), bounds);
         int padding = 20;
         float width = bounds.width() + 2 * padding;
         float height = bounds.height() + 2 * padding;
 
-        // Позиционирование
         float x = Math.min(getWidth() - width, lastTouchX);
         float y = Math.min(getHeight() - height, 100f);
 
         tooltipRect.set(x, y, x + width, y + height);
         canvas.drawRoundRect(tooltipRect, 10, 10, tooltipPaint);
 
-        // Текст
         tooltipPaint.setColor(Color.WHITE);
         canvas.drawText(text, x + padding, y + padding + bounds.height(), tooltipPaint);
     }
