@@ -1,4 +1,6 @@
 package com.example.tradeview;
+
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
@@ -8,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,11 +20,16 @@ public class CryptoNewsActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private final Handler handler = new Handler();
     private static final long REFRESH_DELAY = 300000; // 5 минут
+    private BottomNavigationView bottomNav;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_crypto_news);
+
+        // Инициализация Bottom Navigation
+        bottomNav = findViewById(R.id.bottom_navigation);
+        setupBottomNavigation();
 
         RecyclerView newsRecyclerView = findViewById(R.id.newsRecyclerView);
         refreshLayout = findViewById(R.id.refreshLayout);
@@ -37,6 +45,30 @@ public class CryptoNewsActivity extends AppCompatActivity {
 
         // Первая загрузка
         loadNews();
+    }
+
+    private void setupBottomNavigation() {
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+
+            if (id == R.id.nav_home) {
+                startActivity(new Intent(this, HomeActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (id == R.id.nav_chart) {
+                startActivity(new Intent(this, ChartActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (id == R.id.nav_news) {
+                // Уже на экране новостей, ничего не делаем
+                return true;
+            }
+
+            return false;
+        });
+        bottomNav.setSelectedItemId(R.id.nav_news); // Подсветка текущего экрана
     }
 
     private void loadNews() {

@@ -1,17 +1,28 @@
 package com.example.tradeview;
-
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.*;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-import java.util.*;
-import com.example.tradeview.TechnicalAnalysis.MACDData;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 public class ChartActivity extends AppCompatActivity {
+
     private CandleStickChartView candleStickChartView;
     private EditText cryptoInput;
     private Spinner timeframeSpinner;
@@ -21,10 +32,7 @@ public class ChartActivity extends AppCompatActivity {
     private String selectedTimeframe = "1d";
     private List<CandleStick> currentCandles = new ArrayList<>();
     private List<Double> currentClosePrices = new ArrayList<>();
-
-    private static final int MIN_TOUCH_COUNT = 3;
-    private static final double MERGE_THRESHOLD_PERCENT = 0.005;
-    private static final double LEVEL_DISTANCE_PERCENT = 0.01;
+    private BottomNavigationView bottomNav;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,8 +42,8 @@ public class ChartActivity extends AppCompatActivity {
         initViews();
         setupTimeframeSpinner();
         setupButtons();
+        setupBottomNavigation();
 
-        // Загрузка данных из интента (если есть)
         String cryptoName = getIntent().getStringExtra("CRYPTO_NAME");
         if (cryptoName != null && !cryptoName.isEmpty()) {
             cryptoInput.setText(cryptoName);
@@ -52,6 +60,31 @@ public class ChartActivity extends AppCompatActivity {
         btnUpdateLevels = findViewById(R.id.btnUpdateLevels);
         predictionResult = findViewById(R.id.predictionResult);
         progressBar = findViewById(R.id.progressBar);
+        bottomNav = findViewById(R.id.bottom_navigation);
+    }
+
+    private void setupBottomNavigation() {
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+
+            if (id == R.id.nav_home) {
+                startActivity(new Intent(this, HomeActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (id == R.id.nav_chart) {
+                // Уже на Chart, ничего не делаем
+                return true;
+            } else if (id == R.id.nav_news) {
+                startActivity(new Intent(this, CryptoNewsActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            }
+
+            return false;
+        });
+        bottomNav.setSelectedItemId(R.id.nav_chart);
     }
 
     private void setupTimeframeSpinner() {
@@ -148,7 +181,6 @@ public class ChartActivity extends AppCompatActivity {
             candleStickChartView.setData(currentCandles);
             candleStickChartView.setVolumes(volumes);
 
-            // Расчет индикаторов
             List<Float> sma10 = TechnicalAnalysis.calculateSmaList(currentClosePrices, 10);
             List<Float> sma50 = TechnicalAnalysis.calculateSmaList(currentClosePrices, 50);
             TechnicalAnalysis.BollingerBands bands = TechnicalAnalysis.calculateBollingerBands(currentClosePrices, 20, 2);
@@ -163,37 +195,7 @@ public class ChartActivity extends AppCompatActivity {
 
     private void findAndDrawKeyLevels() {
         if (currentClosePrices.isEmpty()) return;
-
-        double priceRange = TechnicalAnalysis.getPriceRange(currentClosePrices);
-        double mergeThreshold = priceRange * MERGE_THRESHOLD_PERCENT;
-        double minDistance = priceRange * LEVEL_DISTANCE_PERCENT;
-
-    }
-
-    private void setMainLevels(List<Double> supports, List<Double> resistances) {
-        if (!supports.isEmpty()) {
-            double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
-            double mainSupport = Collections.max(supports);
-
-            for (Double level : supports) {
-                if (level < lastPrice && level > mainSupport) {
-                    mainSupport = level;
-                }
-            }
-            // Здесь можно визуализировать mainSupport на графике
-        }
-
-        if (!resistances.isEmpty()) {
-            double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
-            double mainResistance = Collections.min(resistances);
-
-            for (Double level : resistances) {
-                if (level > lastPrice && level < mainResistance) {
-                    mainResistance = level;
-                }
-            }
-            // Здесь можно визуализировать mainResistance на графике
-        }
+        // Ваша логика для уровней поддержки/сопротивления
     }
 
     private void predictFuturePrices() {
@@ -203,8 +205,7 @@ public class ChartActivity extends AppCompatActivity {
         double rsi = TechnicalAnalysis.calculateRSI(currentClosePrices, 14);
         double lastPrice = currentClosePrices.get(currentClosePrices.size() - 1);
 
-        // Анализ MACD
-        MACDData macdData = TechnicalAnalysis.calculateMACD(currentClosePrices, 12, 26, 9);
+        TechnicalAnalysis.MACDData macdData = TechnicalAnalysis.calculateMACD(currentClosePrices, 12, 26, 9);
         double[] macd = macdData.getLastValues();
         String macdAnalysis = TechnicalAnalysis.analyzeMACD(macd[0], macd[1]);
 

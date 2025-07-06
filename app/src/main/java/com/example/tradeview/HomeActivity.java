@@ -1,9 +1,7 @@
 package com.example.tradeview;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -18,6 +16,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -26,8 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import android.view.Menu;
-import android.view.MenuItem;
 
 public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnItemClickListener {
 
@@ -35,12 +32,10 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
     private ProgressBar progressBar;
     private TextView walletBalanceText;
     private RecyclerView walletRecyclerView;
-    private Button newsButton;
     private EditText cryptoSearchInput, cryptoWalletInput, amountInput;
     private TextView priceTextView;
-    private Button searchButton, chartButton, addCryptoButton;
-    private Button predictButton;
-    private Button logoutButton;
+    private Button searchButton, chartButton, addCryptoButton, predictButton, logoutButton, newsButton;
+    private BottomNavigationView bottomNav;
 
     // Adapter
     private WalletAdapter walletAdapter;
@@ -53,10 +48,6 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
-        Button newsButton = findViewById(R.id.newsButton);
-        newsButton.setOnClickListener(v -> {
-            startActivity(new Intent(this, CryptoNewsActivity.class));
-        });
 
         // Initialize wallet with context
         cryptoWallet = new CryptoWallet(this);
@@ -71,23 +62,11 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
         // Setup button listeners
         setupButtonListeners();
 
+        // Setup Bottom Navigation
+        setupBottomNavigation();
+
         // Load initial data
         loadInitialData();
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_news) {
-            startActivity(new Intent(this, CryptoNewsActivity.class));
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     private void initViews() {
@@ -99,11 +78,34 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
         cryptoWalletInput = findViewById(R.id.cryptoWalletInput);
         amountInput = findViewById(R.id.amountInput);
         searchButton = findViewById(R.id.searchButton);
-        chartButton = findViewById(R.id.chartButton);
         addCryptoButton = findViewById(R.id.addCryptoButton);
         predictButton = findViewById(R.id.predictButton);
         logoutButton = findViewById(R.id.logoutButton);
-        newsButton = findViewById(R.id.newsButton);
+        bottomNav = findViewById(R.id.bottom_navigation);
+    }
+
+    private void setupBottomNavigation() {
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+
+            if (id == R.id.nav_home) {
+                // Уже на Home, ничего не делаем
+                return true;
+            } else if (id == R.id.nav_chart) {
+                startActivity(new Intent(this, ChartActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (id == R.id.nav_news) {
+                startActivity(new Intent(this, CryptoNewsActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            }
+
+            return false;
+        });
+        bottomNav.setSelectedItemId(R.id.nav_home);
     }
 
     private void setupRecyclerView() {
@@ -138,60 +140,10 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
         });
     }
 
-    private void processPredictionData(List<List<String>> klines) {
-        try {
-            List<CandleStick> candles = new ArrayList<>();
-            for (List<String> kline : klines) {
-                float open = Float.parseFloat(kline.get(1));
-                float high = Float.parseFloat(kline.get(2));
-                float low = Float.parseFloat(kline.get(3));
-                float close = Float.parseFloat(kline.get(4));
-                candles.add(new CandleStick(open, high, low, close));
-            }
-
-            float predictedPrice = pricePredictor.predictNextPrice(candles);
-            String result = String.format(Locale.US, "Прогноз: %.2f USD", predictedPrice);
-            showToast(result);
-
-        } catch (Exception e) {
-            showToast("Ошибка обработки данных");
-            Log.e("Prediction", "Error processing data", e);
-        }
-    }
-
-    private void makePrediction(String cryptoName) {
-        showToast("Прогнозируем для: " + cryptoName);
-        showProgress(true);
-
-        String symbol = cryptoName.endsWith("USDT") ? cryptoName : cryptoName + "USDT";
-        BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
-
-        Call<List<List<String>>> call = apiService.getKlineData(symbol, "1d", 100);
-        call.enqueue(new Callback<List<List<String>>>() {
-            @Override
-            public void onResponse(Call<List<List<String>>> call, Response<List<List<String>>> response) {
-                showProgress(false);
-                if (response.isSuccessful() && response.body() != null) {
-                    processPredictionData(response.body());
-                } else {
-                    showToast("Ошибка получения данных");
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<List<String>>> call, Throwable t) {
-                showProgress(false);
-                showToast("Ошибка: " + t.getMessage());
-            }
-        });
-    }
-
     private void setupButtonListeners() {
         searchButton.setOnClickListener(v -> handleSearchPrice());
-        chartButton.setOnClickListener(v -> handleOpenChart());
         addCryptoButton.setOnClickListener(v -> handleAddCrypto());
         logoutButton.setOnClickListener(v -> logoutUser());
-        newsButton = findViewById(R.id.newsButton);
         predictButton.setOnClickListener(v -> {
             String cryptoName = cryptoSearchInput.getText().toString().trim().toUpperCase();
             if (cryptoName.isEmpty()) {
@@ -201,6 +153,7 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
             makePrediction(cryptoName);
         });
     }
+
     private void openNewsActivity() {
         startActivity(new Intent(this, CryptoNewsActivity.class));
     }
@@ -384,7 +337,70 @@ public class HomeActivity extends AppCompatActivity implements WalletAdapter.OnI
         updateWalletDisplay();
     }
 
+    private void makePrediction(String cryptoName) {
+        showToast("Прогнозируем для: " + cryptoName);
+        showProgress(true);
+
+        String symbol = cryptoName.endsWith("USDT") ? cryptoName : cryptoName + "USDT";
+        BinanceApiService apiService = RetrofitClient.getClient().create(BinanceApiService.class);
+
+        Call<List<List<String>>> call = apiService.getKlineData(symbol, "1d", 100);
+        call.enqueue(new Callback<List<List<String>>>() {
+            @Override
+            public void onResponse(Call<List<List<String>>> call, Response<List<List<String>>> response) {
+                showProgress(false);
+                if (response.isSuccessful() && response.body() != null) {
+                    processPredictionData(response.body());
+                } else {
+                    showToast("Ошибка получения данных");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<List<String>>> call, Throwable t) {
+                showProgress(false);
+                showToast("Ошибка: " + t.getMessage());
+            }
+        });
+    }
+
+    private void processPredictionData(List<List<String>> klines) {
+        try {
+            List<CandleStick> candles = new ArrayList<>();
+            for (List<String> kline : klines) {
+                float open = Float.parseFloat(kline.get(1));
+                float high = Float.parseFloat(kline.get(2));
+                float low = Float.parseFloat(kline.get(3));
+                float close = Float.parseFloat(kline.get(4));
+                candles.add(new CandleStick(open, high, low, close));
+            }
+
+            float predictedPrice = pricePredictor.predictNextPrice(candles);
+            String result = String.format(Locale.US, "Прогноз: %.2f USD", predictedPrice);
+            showToast(result);
+
+        } catch (Exception e) {
+            showToast("Ошибка обработки данных");
+            Log.e("Prediction", "Error processing data", e);
+        }
+    }
+
     interface PriceCallback {
         void onPriceReceived(double price);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.menu_news) {
+            startActivity(new Intent(this, CryptoNewsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }
